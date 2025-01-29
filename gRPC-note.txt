@@ -1,0 +1,316 @@
+RPC (Remaote Producer Call)
+    SOAP(1980 ข้อตกลงแบบ function ต้องรู้จักกันทั้งสองฝ่าย) -> REST (2000s call กันผ่าน Method และชื่อ) --> เกิด gRPC (เป็น opensource เอาไว้ให้แต่ละ service คุยกัน)
+      
+ (monolithic โมโนลิธติก)           DogService
+     ----------                / 
+    | backend   |   --  gRPC  - UserService
+     ----------                \  
+                                 CatServer
+
+    Quick start สำหรับ Java : https://grpc.io/docs/languages/java/quickstart/
+    Quick start สำหรับ Go : https://grpc.io/docs/languages/go/quickstart/ 
+
+    1. ต้องมี .proto กำหนดเงื่อนไขพวกมี function อะไรบ้าง กำหนดให้ตรงกัน --> generate stub แปลงภาษา
+    2. server
+    3. clinent
+
+    0. vscode install extends : Protocol Buffers เพื่อให้มันขึ้นสีของไฟล์ .proto
+    1. brew install protobuf
+    2. go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+       go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+       export PATH="$PATH:$(go env GOPATH)/bin"
+    3. สร้างไฟล์ helloworld.proto ใน server folder
+        
+        syntax = "proto3";  //---ส่วนนี้เอามาจากเว็บ protobuff ของภาษา Go เลื่อนลงข้างล่าง https://protobuf.dev/getting-started/gotutorial/
+        package tutorial;
+
+        option go_package = "github.com/protocolbuffers/protobuf/examples/go/tutorialpb"; 
+
+
+        // ส่วนนี้เอาจากส่วน quick start ของ gRPC https://grpc.io/docs/languages/go/quickstart/
+        service Greeter {
+        // Sends a greeting
+        rpc SayHello (HelloRequest) returns (HelloReply) {}
+        }
+
+        // The request message containing the user's name.
+        message HelloRequest {
+        string name = 1;
+        }
+
+        // The response message containing the greetings
+        message HelloReply {
+        string message = 1;
+        }
+
+    4. generate gRPC code 
+      เข้าไปที่ folder ของ server
+      $  protoc --go_out=./helloworldpb --go_opt=paths=source_relative \
+  --go-grpc_out=./helloworldpb --go-grpc_opt=paths=source_relative \
+  ./helloworld.proto
+
+      //มันจะได้ไฟล์ helloworld.pb.go , helloworld_grpc.pb.go มา
+    
+    5. สร้างไฟล์ main.go มา
+       สร้าง function main และไปเอาโค๊ดตรงเว็บ gRPC ตรง Starter Server
+
+    6. ส่วนของ client ก็มี main.go เหมือนกัน
+        และมี folder helloworldpb ที่เก็บ function เหมือนกัน
+        ใน main ไปดูใน doc ใช้โค๊ดส่วน create client 
+        และ import โค๊ดจาก folder มาใช้ใน main เหมือนกัน
+        โค๊ดใน main อยู่ใน doc มันจะต่อๆกันลงมาทีละส่วน จนถึง print(feature)
+
+    7. ตอนจะรัน
+        go mod init client
+        go mod tidy
+
+
+
+
+-------- gprc for spring boot ---------
+
+doc: https://yidongnan.github.io/grpc-spring-boot-starter/en/
+
+lognet
+	#server
+		
+		proto
+			#CouponService.proto
+				syntax = "proto3";
+				package net.devh.boot.grpc.example;
+				option java_multiple_files = true;
+
+
+				service GrpcCouponService {
+				rpc CouponDiscount (GrpcCouponServiceRequest) returns (GrpcCouponServiceResponse) {}
+				}
+
+				message GrpcCouponServiceRequest {
+				string couponCode = 1;
+				double originalPrice = 2;
+				}
+
+				message GrpcCouponServiceResponse {
+				string couponCode = 1;
+				double totalPrice = 2;
+				string status = 3;
+				}
+
+				
+		serverConfig
+				@GRpcService
+				public class GrpcCouponServiceServer extends GrpcCouponServiceGrpc.GrpcCouponServiceImplBase{
+
+					private final CouponDiscountBusiness couponDiscountBusiness;
+
+					public GrpcCouponServiceServer(CouponDiscountBusiness couponDiscountBusiness) {
+						this.couponDiscountBusiness = couponDiscountBusiness;
+					}
+
+					@Override
+					public void couponDiscount(GrpcCouponServiceRequest request, StreamObserver<GrpcCouponServiceResponse> responseObserver) {
+						CouponDiscountResponse discountResponse= couponDiscountBusiness.validateCouponAndDiscount(request.getCouponCode(),request.getOriginalPrice());
+
+						GrpcCouponServiceResponse response = GrpcCouponServiceResponse.newBuilder()
+								.setCouponCode(discountResponse.getCouponCode())
+								.setTotalPrice(discountResponse.getTotalPrice())
+								.setStatus(discountResponse.getStatus())
+								.build();
+						responseObserver.onNext(response);
+						responseObserver.onCompleted();
+					}
+				}
+
+		.yaml
+			grpc:
+				port: 9090
+
+		pom.xml
+
+			###########
+			<properties>
+				<protobuf.version>3.23.4</protobuf.version>
+				<protobuf-plugin.version>0.6.1</protobuf-plugin.version>
+				<grpc.version>1.69.0</grpc.version>
+				<os-maven-plugin.version>1.7.1</os-maven-plugin.version>
+			</properties>
+
+			###########
+			<dependency>
+					<groupId>io.github.lognet</groupId>
+					<artifactId>grpc-spring-boot-starter</artifactId>
+					<version>5.1.5</version>
+				</dependency>
+				<dependency>
+					<groupId>javax.annotation</groupId>
+					<artifactId>javax.annotation-api</artifactId>
+					<version>1.3.2</version>
+				</dependency>
+
+			###########
+			<build>
+				<extensions>
+					<extension>
+						<groupId>kr.motd.maven</groupId>
+						<artifactId>os-maven-plugin</artifactId>
+						<version>${os-maven-plugin.version}</version>
+					</extension>
+				</extensions>
+
+				<plugins>
+					<plugin>
+						<groupId>org.springframework.boot</groupId>
+						<artifactId>spring-boot-maven-plugin</artifactId>
+						<configuration>
+							<excludes>
+								<exclude>
+									<groupId>org.projectlombok</groupId>
+									<artifactId>lombok</artifactId>
+								</exclude>
+							</excludes>
+						</configuration>
+					</plugin>
+					<plugin>
+						<groupId>org.xolstice.maven.plugins</groupId>
+						<artifactId>protobuf-maven-plugin</artifactId>
+						<version>${protobuf-plugin.version}</version>
+						<configuration>
+							<protoSourceRoot>${project.basedir}/src/main/java/com/example/training/coupon_service/config/grpc/proto/</protoSourceRoot>
+							<protocArtifact>com.google.protobuf:protoc:${protobuf.version}:exe:${os.detected.classifier}</protocArtifact>
+							<pluginId>grpc-java</pluginId>
+							<pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
+						</configuration>
+						<executions>
+							<execution>
+								<goals>
+									<goal>compile</goal>
+									<goal>compile-custom</goal>
+								</goals>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+				<finalName>couponService</finalName>
+			</build>	
+
+	^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+		#client
+		proto
+			#CouponService.proto
+			syntax = "proto3";
+			package net.devh.boot.grpc.example;
+			option java_multiple_files = true;
+
+
+			service GrpcCouponService {
+			rpc CouponDiscount (GrpcCouponServiceRequest) returns (GrpcCouponServiceResponse) {}
+			}
+
+			message GrpcCouponServiceRequest {
+			string couponCode = 1;
+			double originalPrice = 2;
+			}
+
+			message GrpcCouponServiceResponse {
+			string couponCode = 1;
+			double totalPrice = 2;
+			string status = 3;
+			}
+
+		clientConfig
+			@Service
+			public class CouponServiceGrpc {
+				public CouponDiscountResponse getCouponDiscount(String couponCode, double originalPrice) {
+
+					ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", 6565)
+							.usePlaintext()
+							.build();
+
+					net.devh.boot.grpc.example.GrpcCouponServiceGrpc.GrpcCouponServiceBlockingStub blockingStub = net.devh.boot.grpc.example.GrpcCouponServiceGrpc.newBlockingStub(channel);
+
+					GrpcCouponServiceRequest request = GrpcCouponServiceRequest.newBuilder()
+							.setCouponCode(couponCode)
+							.setOriginalPrice(originalPrice)
+							.build();
+
+					GrpcCouponServiceResponse result = blockingStub.couponDiscount(request);
+
+					CouponDiscountResponse response = new CouponDiscountResponse();
+					response.setCouponCode(result.getCouponCode());
+					response.setTotalPrice(result.getTotalPrice());
+					response.setStatus(result.getStatus());
+					return response;
+				}
+			}
+			
+		.yaml
+			-
+		pom.xml
+			###########
+			<properties>
+					<protobuf.version>3.23.4</protobuf.version>
+					<protobuf-plugin.version>0.6.1</protobuf-plugin.version>
+					<grpc.version>1.69.0</grpc.version>
+					<os-maven-plugin.version>1.7.1</os-maven-plugin.version>
+				</properties>
+
+			###########
+
+				<dependency>
+						<groupId>io.github.lognet</groupId>
+						<artifactId>grpc-spring-boot-starter</artifactId>
+						<version>5.1.5</version>
+					</dependency>
+					<dependency>
+						<groupId>javax.annotation</groupId>
+						<artifactId>javax.annotation-api</artifactId>
+						<version>1.3.2</version>
+					</dependency>
+
+				<build>
+					<extensions>
+						<extension>
+							<groupId>kr.motd.maven</groupId>
+							<artifactId>os-maven-plugin</artifactId>
+							<version>${os-maven-plugin.version}</version>
+						</extension>
+					</extensions>
+
+			###########
+					<plugins>
+						<plugin>
+							<groupId>org.springframework.boot</groupId>
+							<artifactId>spring-boot-maven-plugin</artifactId>
+							<configuration>
+								<excludes>
+									<exclude>
+										<groupId>org.projectlombok</groupId>
+										<artifactId>lombok</artifactId>
+									</exclude>
+								</excludes>
+							</configuration>
+						</plugin>
+						<plugin>
+							<groupId>org.xolstice.maven.plugins</groupId>
+							<artifactId>protobuf-maven-plugin</artifactId>
+							<version>${protobuf-plugin.version}</version>
+							<configuration>
+								<protoSourceRoot>${project.basedir}/src/main/java/com/example/training/myApp4/config/grpc/proto/</protoSourceRoot>
+								<protocArtifact>com.google.protobuf:protoc:${protobuf.version}:exe:${os.detected.classifier}</protocArtifact>
+								<pluginId>grpc-java</pluginId>
+								<pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
+							</configuration>
+							<executions>
+								<execution>
+									<goals>
+										<goal>compile</goal>
+										<goal>compile-custom</goal>
+									</goals>
+								</execution>
+							</executions>
+						</plugin>
+					</plugins>
+					<finalName>app</finalName>
+				</build>		
+
+				

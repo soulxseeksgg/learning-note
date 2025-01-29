@@ -1,0 +1,145 @@
+ git config --global user.name "soulxseeksgg"  //ถ้าจะเปลี่ยนค่าก็รันทับไปได้เลย
+ git config --global user.email "pontree.kongjanta@gmail.com"
+
+ cd ไปที่ /Users/Soulxsense/Documents/WorkSplaceTest/frontend  folder ระดับ project
+ ใช้คำสั่ง git init
+
+ หรือถ้าจบลบประวัติใหม่หมด ใช้คำสั่ง rm -rf .git
+
+ดูประวัติ
+    git log 
+ดูสถานะไฟล์ 
+ git status 
+เพิ่มไฟล์ทั้งหมดไปเพื่อรอ commit 
+    git add . 
+commit พร้อม comment ถ้าใช้ git commit -am "comment" คือไม่ต้องใช้ git add . ก่อน รวบไป -am ทีเดียวเลย     
+    git commit -m "comment" 
+ดู remote ที่เชื่อมไว้ทั้งหมด
+    git remote -v    
+กำหนด origin remote (add ภายใต้ folder ของใครของมัน มันเพิ่ม remote ใน common แต่ไป git remote -v ที่ email ก็ไม่เจอนะ) (ข้างล่างเป็นการเพิ่มแบบ ssh key แบบ http จะเป็นอีกแบบแต่เราขี้เกียจ login ใหม่ทุกครั้ง) 
+
+    git remote add front-end git@github.com:soulxseeksgg/front-end.git
+    git remote add common git@github.com:soulxseeksgg/common.git
+    git remote add email git@github.com:soulxseeksgg/spring-boot-email.git
+    git remote add backend git@github.com:soulxseeksgg/spring-boot-backend.git
+    git remote add kafkaConsumer git@github.com:soulxseeksgg/kafkaConsumerSender.git
+
+คำสั่งเปลี่ยน url remote ที่มีอยู่แล้ว สังเกตุมันจะมีคำว่า set-url ส่วน add ใหม่ มันก็จะมีคำว่า add
+    git remote set-url common git@github.com:soulxseeksgg/common.git  
+ลบ remote ที่ set ไว้
+    git remote remove <remote-name>      
+เปลี่ยนชื่อ remote ถ้า set ไปแล้ว
+    git remote rename <ชื่อเก่า> <ชื่อใหม่>
+
+ชื่อ project (folder) ไม่จำเป็นต้องตรงกับชื่อ repo บนเว็บ
+และชื่อ repo บนเว็บก็สามารถเปลี่ยนได้โดยไม่กระทบส่วนอื่น นอกจากต้องอัพเดทลิ้ง remote ใหม่ (ถ้ามีใช้)
+
+git push
+            (--set-upstream) //บอกว่าให้ล็อคเป้าเส้น remote ว่าจะให้ใช้เส้นนี้เสมอ เวลา push ต่อไปเราสามารถใช้คำสั่งแค่ git push เฉยๆได้ เพราะเรา set เส้นไว้แล้วว่าจะเอาขึ้นเส้นใหน
+              v
+    git push -u origin-gitlab main
+
+เพื่อทับของเดิมทั้งหมดแม้แต่ประวัติบน git (web) 
+    git push -f remote-name main 
+เช็ค version git
+    git --version 
+ดูว่ามี branch อะไรบ้าง
+    git branch
+เปลี่ยนชื่อ branch (-m คือ move หรือ rename)
+    git branch -m <old-branch-name> <new-branch-name>
+กำหนด defualt branch ไม่ต้องมาเปลี่ยนบ่อย จาก master มาเป็น main
+    git config --global init.defaultBranch main
+ย้าย branch
+    git switch <branch-name>
+ใช้ SSH แทน HTTPS เพื่อจะได้ไม่ต้องกรอก user password ทุกครั้งเมื่อทำการ push
+    ลบ SSH key บนเว็บก่อน setting > SSH and gpg key > กด delete
+    ลบในเครื่อง 
+        cd ~/.ssh
+    ดูไฟล์
+        ls -ltr
+    ลบไฟล์ id_rsa ทิ้ง (** note rsa เป็นชื่อนักวิทยาศาสตร์คอมพิวเตอร์สามคนที่สร้างอัลกอลิทึมเข้ารหัสที่มีความปลอดภัยสูง สร้างตั้งแต่ปี 1977 )
+    สร้าง ssh key ด้วยคำสั่ง: 
+        ssh-keygen -t rsa -b 4096 -C "pontree.kongjanta@gmail.com"    //(ถ้ามีอะไรขึ้นมาให้ไส่กด enter ตลอด ถามครั้งแรก confirm ที่เก็บ ssh key ถามครั้งที่สองและสามไส่ password ถ้าไม่แคร์ก็ enter ไปสองที)
+    เพิ่ม ssh key ไปยัง agent (ตัวช่วยที่ไม่กรอก username,password ทุกครั้ง) ด้วยคำสั่ง 
+        eval "$(ssh-agent -s)"
+        ssh-add ~/.ssh/id_rsa
+    อ่านไฟล์ ssh key เพื่อคัดลองไปเก็บ github web
+        cat ~/.ssh/id_rsa.pub
+    ลอง push ดูมันทำงานได้ไหม
+
+    ทำ ssh key ถ้ามันเป็นครั้งแรกของการเชื่อมต่อ gitlab
+    1.sh-keygen -t rsa -b 4096 -C "pontree.kongjanta@gmail.com" -f ~/.ssh/id_gitlab_rsa
+        จะได้ไฟล์ 
+        cd ~/.ssh/
+        id_gitlab_rsa  //ไฟล์นี้เก็บไว้เป็นความลับ
+        id_gitlab_rsa.pub //ไฟล์นี้ต้องเอาไปแปะบนเว็บ gitlab
+
+    2. cat ~/.ssh/id_gitlab_rsa.pub //เพื่อจะเอา key ไปแปะบนเว็บ
+        เข้าเว็บ gitlab > ไปที่โปรไฟล์ คลิ๊ก > preferace > SSH Key เมนูซ้ายมือ > Add key ไส่ public key ที่ก้อปไว้มาไส่ > กด add key
+
+    3. vi ~/.ssh/config 
+        
+        # GitLab 
+        Host gitlab.com
+            HostName gitlab.com
+            User git
+            IdentityFile ~/.ssh/id_gitlab_rsa  //ชี้ไปที่ไฟล์
+
+        ทดสอบการเชื่อมต่อ
+            ssh -T git@gitlab.com
+               จะขึ้น "Welcome to GitLab, @soulxseeksgg!" //pull push code ขึ้น gitlab ได้แล้ว
+
+ถ้าไฟล์มันแดง เพราะไฟล์มีการแก้ไข และยังไม่ git add .เรามีคำสั่งเช็คได้ไหมว่ามันเปลี่ยนตรงใหน โดยขอดูก่อน โดยที่ยังไม่ได้ add
+ตอบ ใช้ git diff <ตามด้วยชื่อไฟล์> //(มันจะเปิดโปรแกรม merge ขึ้นมาให้)
+git diff src/app/components/chat/chat.component.ts 
+
+git reset --soft commintxxx
+ตัวอย่างประกอบ
+    commit3
+    commit2
+    commit1 << จะย้อนไปตรงนี้ แต่ละ commit เป็นการเพิ่มไฟล์ใหม่
+--soft:
+    ย้อนกลับไปที่ commit ที่เลือก
+    ไฟล์และการเปลี่ยนแปลงยังอยู่เหมือน commit ล่าสุด
+    log commit ระหว่างนั้นหายไป
+    การเปลี่ยนแปลงทั้งหมดอยู่ใน staging area (พร้อมสำหรับการ commit ใหม่)
+--mixed:
+    ย้อนกลับไปที่ commit ที่เลือก
+    ไฟล์และการเปลี่ยนแปลงยังอยู่เหมือน commit ล่าสุด
+    log commit ระหว่างนั้นหายไป
+    การเปลี่ยนแปลงทั้งหมดอยู่ใน working directory (ต้อง stage ใหม่ถ้าจะ commit)
+--hard:
+    ย้อนกลับไปที่ commit ที่เลือก
+    ไฟล์ใหม่ที่ได้จาก commit2 และ 3 จะหายไป
+    log commit ระหว่างนั้นหายไป
+    ทุกอย่างทั้งหมดจะย้อนกลับไปตอนที่ commit1 ใหม่ๆ คือไม่มีไฟล์ใหม่ของ commit2 และ commit3 และไม่มี log ใดๆที่เกิดขึ้น
+
+ล้าง log ออกทั้งหมด แต่ไม่แตะต้องไฟล์
+rm -rf .git
+
+เพื่อป้องกันในอนาคต เพิ่ม .DS_Store เข้า global gitignore
+git config --global core.excludesfile ~/.gitignore_global
+echo ".DS_Store" >> ~/.gitignore_global
+
+
+ถ้ามันมีแค่ commit เดียวเราจะย้อนกลับไปยังไง
+ใช้ git update-ref -d HEAD //ลบ commit ทั้งหมด ไฟล์ทั้งหมดย้อนกลับไป staging area (update-ref = การอ้างอิง commit หรือก็คือ head, -d ก็คือลบไป มันก็เลยกลายเป็นคำสั่งลบ head การอ้างอิงทิ้งมันก็เลยไม่มี commit แต่ไฟล์ยังคงอยู่ลบแค่ส่วนอ้างอิง)
+
+ดึงโค๊ดลงมาแก้อะไรก็ commit ไปก่อน (กรณีที่มันเท่ากันอยู่แล้วก่อนแก้โค๊ด)
+git pull <remote> <branch>
+git pull common main
+ถ้ามันขึ้น Already up to date. แสดงว่าข้างบนไม่ได้มีการเปลี่ยนแปลงจากฝั่ง remote (แสดงว่าไม่มี conflix และถ้าไม่มีวันมีถ้าทำคนเดียว ถ้าไม่ขึ้นไปแก้มือเองข้างบน)
+
+git diff
+เราใช้ git diff remotename/branch ตามด้วยชื่อไฟล์ได้ตอนที่ยังไม่ add เอาไปใช้หลัง add ไม่ค่อยมีประโยชน์
+ืnote ถ้าเรา add ไปแล้ว และไปแก้ไฟล์เดิมมันจะมีเป็นสองสถานะ แล้วถ้าเราแก้ให้มันตรงกับข้างบน แล้ว add สีแดงไปใหม่ สีเขียวมันจะหายไปเพราะมันรู้ว่าไม่มีอะไรเปลี่ยนแปลงกับ remote local เอาจริงมันก็หายตั้งแต่เป็นสีแดงแล้วแหละ
+
+ถ้าอยากย้อนเอาไฟล์จาก add . แล้วกลับไป working stat
+git reset ตามด้วยชื่อไฟล์
+
+ดู list file ที่ commit ไปแล้ว
+    git ls-files
+
+เลิกแทร๊กไฟล์
+เอาไฟล์ที่ไม่อยากได้ไปไส่ใน .gitignore
+git rm --cached <file_name>

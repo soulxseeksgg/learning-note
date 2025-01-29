@@ -1,0 +1,6 @@
+1. brew install go
+2. สร้าง folder เก็บ project
+3. go mod init gotest    ---- ได้สองไฟล์ go.mod (เก็บ libraly package ที่ project ใช้) และ go.sum (ใช้ในการโหลดไฟล์พวกนั้นและมี check ว่าโหลดเสร็จไหมมีเลขข้างหลังเป็นตัวเช็ค)
+4. go run .  --- run file
+4. search "gofiber" เข้าไปเว็บของ git
+   go get -u github.com/gofiber/fiber/v3   ---โหลดไฟล์ gofiber มามั้ง

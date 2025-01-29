@@ -1,0 +1,85 @@
+kafka เอาไว้เช็คระหว่าง microservice ว่าส่งข้อความไปครบไหม โคตรสำคัญ (นึกถึง Kafka เป็นเหมือนกับศูนย์กลางการจัดการข้อมูลขนาดใหญ่ที่มีการจัดเก็บข้อมูลในหลายๆ ตู้เก็บของ (Partitions) และทำการสำรองข้อมูล (Replication) เพื่อให้แน่ใจว่าข้อมูลจะไม่สูญหายและสามารถส่งไปยังปลายทางได้อย่างรวดเร็ว แม้ว่าจะมีปัญหาหรือความผิดพลาดเกิดขึ้น.)
+สร้าง network มาเส้นหนึ่ง
+ให้ zookeeper ทำงานก่อน (มีหน้าที่ชุบ kafka ขึ้นมาเวลาเจ้ง หรือถ้า kafka บางตัวทำงานไม่ได้จะเอา kafka อีกตัวขึ้นมาทำงานแทน)
+จากนั้นให้ kafka ทำงาน 
+https://nutbutterfly.medium.com/how-to-run-zookeeper-and-kafka-in-docker-5b6ce7c16bbf
+
+1.create docker network
+$ docker network create app-tier --driver bridge
+
+2. run zookeeper container ให้ไปเกาะ network เส้นนั้น 
+$ docker run -d --name zookeeper --network app-tier -p 2181:2181 -e ALLOW_ANONYMOUS_LOGIN=yes bitnami/zookeeper
+
+3. run kafka container ให้ไปเกาะเหมือนัน
+$ docker run -d --name kafka --network app-tier --hostname localhost -p 9092:9092 -e ALLOW_PLAINTEXT_LISTENER=yes -e KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181 bitnami/kafka
+
+-----
+
+เราจะไม่เอา process อะไรที่ทำนานๆเช่นส่งเมล ส่งไฟล์ pdf ฝั่งไว้ใน backend ตัวหลัก 
+เราต้องแยกออกไปเป็น serive หนึง เป็น microserive 
+ถ้าสมมุติส่งเมลมันจะส่งไปหา Kafka ก่อน แล้ว Kafka จะถามหาว่าใครมีหน้าส่งเมลมารับไป
+
+-12:16 new project ใหม่ชื่อ email (ย้าย service ส่งเมลเดิมที่อยู่ใน backend ไปไว้เป็น microservice การทำงาน request --> kafka -->email microservice)
+  library : springBootDevtools, lombok, springBootConfigurationProcesser, SpringWeb, SpringBootActuratior, javaMailSender
+- new project common (เอาไว้ share class ระหว่างทั้งสอง project)
+  library : springBoot DevTools, lombok, SpringConfigurationProcesser
+
+  
+
+1.ใน project backend ลง dependency kafka , kafka test
+2.เชื่อมไปที่ kafka ที่อยู่ใน docker โดย config การเชื่อมต่อในไฟล์ yaml (ต่อจาก intellij ไป)
+  - แล้วลองรันอยู่ถ้ารันผ่าน เราน่าจะเชื่อมต่อไปหา kafka ได้แล้ว
+3.ทำแบบเดียวกันใน project ของ email 
+  -ลง dependency
+  -config file yaml เปลี่ยน port ด้วยเดี๋ยวชนกัน
+     server: //ไส่บนหัวสุดไฟล์ yaml เลย บน คำว่า spring อีก
+       port: 8081
+     spring:
+       kafka:
+         bootstrap-servers: localhost:9092  //เชื่อมต่อไปที่ kafka port เดียวกันเหมือน backend
+         consumer:
+           group-id: "my-awesome-app"    //ต่อไปที่ group id เดียวกัน คือ my-awesome-app
+  - ลองรันเหมือนกัน ถ้าผ่านแสดงว่าต่อ kafka ได้
+
+  (producer)         (consumer)
+  backend (เป็นคนส่ง)   email (จะเป็นคนรับ)         
+
+  เริ่มต้นให้มันคุยได้ยังไงก่อน
+  ใช้ kafka template อย่างง่ายก่อน ทำในชั้น business
+  kafkaTemplate.send("topic อะไร", "ข้อความว่าอะไร")
+  จะมี methode ให้ใช้ส่งได้ (28:10)
+  ส่งไม่ได้ให้ทำอะไร
+
+  //มีใช้ log4j2 ด้วย ที่เวลา 28:26
+
+  โชว์ log ตอน call kafka สำเร็จ ที่เวลา 34:34
+
+  ทำฝั่งรับ ที่เวลา 35:35
+  @Component คือ ??
+  @Component, @Repository, @Service, @Controller สำหรับ @Component นั้น คือการกำหนดให้ Object จาก Class ใดๆ สามารถทำ Dependency injection ได้
+
+  36:45 อยากจะรอที่ Topic อันใหน ใช้ Anotation @KafkaListner(topics = "activate-email")
+  ใช้ log เพื่อตรวจสอบการส่งค่า ถ้ารับได้ print ไว้ก่อน
+  37:48 เมื่อกิ ผมไม่ได้รัน email service หมายความว่าไงครับ หมายความว่ามันจะยังคงอยู่บน kafka จนกว่าจะมีคนมารับออกไป
+        ถ้าไม่ใช่ kafka user คนนั้นจะไม่มีทางได้รับ email ถ้าระบบตัวรับล้มอยู่ (ข้อดีมันอย่างงี้นี้เอง)
+  39:19 เมื่อรัน service email ขึ้นตามหลักมันจะต่อไปที่ kafka แล้วไปหาว่ามีใครส่งอะไรมาให้ฉันไหม
+ 
+   42:14 ส่งเป็น Object ผ่าน Kafka
+   45:00 copy groupId,artifact และก็ version ใน pom ของ common มา ---> ไปแปะที่ pom ของ backend และ email 
+         ก็คือการเพิ่ม dependency ให้มันนั้นเอง
+
+    46:07 หลังจากไส่ depenpency ให้อ้างถึงกันแล้ว เราสามารถ เข้าถึงตัวแปร Email request ที่ทำเป็น lombox ไว้ได้เลย โคตรแจ่ม (dependency อื่นก็น่าจะทำแบบเดียวกัน)
+
+    47:49 เอาเมาส์ไปชี้ที่ชื่อ class จะมีบอกว่ามีใครเรียกใช้ไปบ้าง
+
+    53:26 library ที่ชอบใช้ในการ generate password หรือ generate อะไรบางอย่าง (passay)
+          เอา dependency มาลง 
+          เอาโค๊ด generate password ไปแปะในไฟล์ securityUtil เป็นเรื่องความปลดภัยเหมือนกัน 
+             สามารถเพิ่มรูปแบบการ gen ได้ แบบเพิ่ม spacail charectoer เข้าไปอีก ในการ gen password
+    1:31:17 ทำไมต้องมี common ทำไมต้องมี class ที่ต้องแชร์กัน เพราะมันดูระดับ path เลย สร้างแยก path ไม่เหมือนเหมือน มันไปติด security ที่ฝั่ง kafka เค้าวางไว้
+            แต่มันค่อยข้างเสี่ยงถ้าฝั่งใดฝั่งหนึ่งเปลี่ยน เราต้องไปไล่แก้ทั้งสองฝั่ง
+
+    1:59:40 ทำไมถึงบัค เพราะเราไม่ได้ software spece design ว่าอะไร function อะไรบ้าง แล้วตอนเราเขียนเราจะไม่หลุดบัค                 
+           
+    *note* ทำให้ intellij ไม่ auto reformate single line
+    ไปที่ intellijIDE>preferences > Editor > General > Code Folding > uncheck One-line Methode       

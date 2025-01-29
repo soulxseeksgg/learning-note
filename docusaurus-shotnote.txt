@@ -1,0 +1,23 @@
+1. create project
+    npx create-docusaurus my-docs classic 
+
+2. config 
+    ไฟล์ docusaurus.config.ts
+        url: 'https://github.com',
+        baseUrl: '/my-project-structure',  <-- url ที่จะให้เข้า
+        organizationName: 'soulxseeksgg',  <<--- ชื่อ user github
+        projectName: 'my-project-structure', <--- repo github
+        deploymentBranch: 'gh-pages' <<--- branch github ที่เอาไว้สำหรับเก็บ git page
+
+3. ทำให้หน้าแรกเป็น .md
+  เปลี่ยนชื่อมันเป็น index.md  สามารถเรียกโดยผ่าน localhost:3000
+
+4. เพิ่มรูป
+  ![Docusaurus logo](/img/docusaurus.png)   
+
+5. run
+    npm start
+
+6. deploy
+    GIT_USER=soulxseeksgg USE_SSH=true npm run deploy    
+

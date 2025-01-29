@@ -1,0 +1,41 @@
+#Run
+docker run -d --name mongo \
+  -e MONGO_INITDB_ROOT_USERNAME=mongoadmin \
+  -e MONGO_INITDB_ROOT_PASSWORD=secret \
+  -p 27017:27017 \
+  mongo:latest
+
+Extendsion: MongoDb for VS Code
+
+ที่แทบเมนูรูป icon mongodb 
+    จะมี connection คลิ๊กขวา create database
+    
+    const database = 'couponDb';
+    const collectionName = 'couponData';
+
+    // Create a new database.
+    use(database);
+
+    db.createCollection(collectionName);
+
+    // Create a new collection.
+    const couponData = [
+        {couponCode: 'SALE30', discountPrice: '30', status:'active'},
+        {couponCode: 'SALE10', discountPrice: '10', status:'inactive'}
+    ];
+
+    db[collectionName].insertMany(couponData);
+
+    db[collectionName].find();
+
+
+---- for query ----
+    const database = 'couponDb';
+    const collectionName = 'couponData';
+    use(database);
+
+    db[collectionName].find();
+    
+    //check type
+    //db.couponData.find().forEach(doc => print(typeof doc.discountPrice));
+    //number = Double 

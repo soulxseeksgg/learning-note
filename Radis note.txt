@@ -1,0 +1,95 @@
+in memory storage (Radis)
+
+1. ติดตั้งและรัน Redis บน Docker
+ 1.1 ไปที่เว็บ docker hub pull redis ลงมา (แสดงว่าถ้าจะติดตั้งอะไรที่รันบน Dokcer ต้องไปค้นหาที่ Docker hub pull)
+ 1.2 copy คำสั่ง docker pull redis (คำสั่ง pull) ไปรันที่ terminal
+ 1.3 run redis ให้ทำงานบน Docker มี 2 วิธ๊
+    - run redis รันที่ image ไปที่ Docker < image > กดรันที่ image ของ redis ไส่ชื่อ ContailnerName: redis, port 6379
+    - หรือใช้คำสั่ง (เอาไปรันที่ terminal): docker run --name redis -p 6379:6379 -d redis
+                            (คำสั่งสร้าง container) (ชื่อของ container) (port ซ้ายคือของข้างนอก : port ของคือ port ภายใน container ของ redis)
+                            (-d คือ รันแบบ background) (redis คือชื่อ image ที่ใช้สร้าง container)
+
+***note เรื่อง Docker ทำงานยังไง***                            
+Docker เป็นแค่ตัวจัดการ image และ container เช่นรัน สร้าง ลบ image หรือ container เป็นแค่ตัวช่วยหรือ UI ในการจัดการ image และ container 
+ส่วนการทำงานจริงรันอยู่บนเครื่องเราเลย เราเลยใช้คำสั่งอะไรดู image และ container ดูได้บน terminal ได้เลย Docker มันแค่หน้ากากเอาไว้ดู
+ุ6379:6379
+6379 ตัวแรกเป็นของ host ที่จะเลือก port ไปเชื่อมกับ container ซึ่งเป็นเลขตัวที่สอง ซึ่งเปรียบเสมือนเบอร์โทรของบ้านใน container 
+เลข port ของ host(เครื่องเรานี้แหละ) นี้เป็นเลขอะไรก็ได้ขอแค่ไม่ซ้ำกับคนอื่น มันเป็นแค่เส้นทางของการเชื่อมต่อว่า host จะต่อผ่านท่อเลขนี้ไปที่ห้องเลขนี้
+
+2. ลง dependency
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifact>spring-boot-starter-data-redis</artifact>
+</dependency>
+//นิยมใช้งานร่วมกับ data-cache
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifact>spring-boot-starter-data-cache</artifact>
+</dependency>
+
+3. set connection ไปที่ Redis ในไฟล์ yaml
+
+ภายใต้ spring
+    redis:
+        host: localhost
+        port: 6379
+    cache:
+        type: redis
+        redis:
+            time-to-live: 300000 //หน่วยเป็น mili sec  1วิ = 1000, 6วิ = 6000, 60วิ = 60000, 5นาที = 60000x5 = 300000  
+
+
+4. ลองรัน ว่า springboot ของเราเชื่อมต่อไปหา Redis ได้ไหม
+   หรือลองเข้า localhost:8080/actuator/health ถ้าสถานะเป็น UP คือต่อได้
+
+
+path เอาไปใช้งาน               
+1. ไปที่ class Entity เพิ่ม imprements Serializable (ซีเรียวไรเซเบอล เอาไว้ใช้กับพวก entity พวก data ที่เป็น object แล้วแปลงข้อมูลเก็บลง redis) ไม่ต้องไส่ BaseEntity เพราะไม่เกี่ยวมันแค่ดึงมาใช้ตัวนี้
+2. ไปบอกว่า springboot เริ่มการ cache ได้เลย ไปที่ไฟล์หลัก BackendApplication เพิ่ม Anotation @EnableCaching แค่นี้ spring boot ก็รู้แล้วเวลารัน springboot ขึ้นมาให้ช่วยเปิด cache ขึ้นมาด้วยนะ
+3. วิธีเอาไปใช้ ไปที่ชั้น service ใช้ Anotation @Cacheable (แคลชชัวเบอล)
+
+                *note* @Cacheable เป็นส่วนหนึ่งของ spring.cache ไม่ใช่ของ redis
+               (value ชื่อ cache ที่เอาไว้ติดตาม ตั้งเป็นชื่อเดียวกับ table ก็ได้เพราะก็มองเหมือนว่าเป็น table table หนึ่งที่เก็บบนแรม)
+               (key ควรตั้งให้สัมพันธ์กับ unique ของ table เพราะมันอัพเดทแคชจะได้ไม่มีปัญหา สมมุติ unique มี 3 column แต่เราไส่ key ไปแค่ตัวเดียว มันจะอัพเดทไปทั้งหมดที่ key ตัวเดียวนั้นตรง อย่างเช่น john snow geek, john oven low  ถ้าไส่แค่คอลัม์ john เป็น key แคชมันจะอัพเดท effect ไป 2 rows ซึ่งไม่ควร)  
+               (unless ไม่อัพเดทแคช ถ้าผลลัพธ์ของ methode นั้น query ออกมาแล้วไม่มีค่า สามารถไส่เป็น false ได้)
+                ** 
+    @Cacheable(value = "email", key = "#email", unless = "#result == null")
+    public Optional<User> findByEmail(String email) {
+
+    //function update เวลา cache ถ้ามีการแก้ไขข้อมูลภายใน id นั้นๆ
+    @CachePut(value = "user", key = "#email")
+    public User updateUserName(String email, String userName){
+
+
+4. สามารถดูผลการ cache ว่ามีอะไรบ้าง ไปที่
+   Redis ใน Docker กดเข้าไป เลือก CLI มันจะเปิดหน้า comand ขึ้นมา
+   ใช้ command $ redis-cli   //แล้วมันจะทำการ connect redis ไปที่เครื่อง localhost 127.0.0.1:6379 port redis แล้วนะ
+   ใช้ command $ keys *    //เพื่อดูว่ามี cache อะไรบ้าง
+
+5. ลองยิง API ที่ใช้ function นั้น  
+   ลองใช้ Log4j2 ปริน log ไว้ก็ได้ ถ้ามันไม่เข้าใช้ function ในรอบที่สอง แสดงว่ามันใช้จาก cache
+   
+6. มีโปรแกรมแบบ UGI ให้ใช้ดูได้ RedisInsight   
+
+
+สรุป redis
+create ใช้ @Cacheable(value = "email", key = "#email", unless = "#result == null") key เป็น column อะไรก็ได้ที่เราจะใช้ get หรือดูบ่อยๆ
+ีupdate ใช้ @CachePut(value = "user", key = "#email")  cache put มีหน้าที่เอาไว้อัพเดทเพื่อให้ cacheable ทำงานถูกสำหรับการดึงค่าครั้งถัดไป
+delete ใช้ @CacheEvict(value = "user", key = "#email")
+
+//ใน update และ delete ไม่มี unless เพราะ unless เอาไว้ตัดสินใจว่าจะอัพเดทข้อมูลไหม ซึ่ง update และ delete มันอัพเดทอยู่แล้ว ไม่ต้องติดสินใจ
+
+
+
+
+
+ SECRET_DB_REDIS_HOST=172.20.10.3
+SECRET_DB_REDIS_PORT=6379
+
+redis:
+    host: ${SECRET_DB_REDIS_HOST:localhost}
+    port: ${SECRET_DB_REDIS_PORT:6379}
+  cache:
+    type: redis
+    redis:
+      time-to-live: 300000

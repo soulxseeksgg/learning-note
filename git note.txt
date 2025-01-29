@@ -1,0 +1,285 @@
+--### git config ###--  
+  cd /Users/Soulxsense/
+  vi .gitconfig
+
+  #set user
+  git config --global user.name "soulxseeksgg"  //ถ้าจะเปลี่ยนค่าก็รันทับไปได้เลย
+  git config --global user.email "pontree.kongjanta@gmail.com"
+
+  # ทำ shotcut hot key
+  git config --global alias.co "checkout"
+  git config --global alias.br "branch"
+  git config --global alias.st "status"
+  git config --global alias.l "log"
+  
+
+  #ดู config ทั้งหมด (ใช้ใน repository ที่ต้องการ ไม่งั้นมันจะบอกผิดว่าใช้ user ใหนอยู่ เพราะมันบอก user ตามตำแหน่งของ folder)
+    git config --list //มันจะโชว์ตามที่ set ไว้เป็น level เช่น ถ้าอยู่ใน folder ที่ใช้ --local ไว้มันก็จะโชว์ local แม้จะ set git config ไว้ทั้งสองตัว มันจะโชว์ไม่ซ้ำกัน คือเอาแค่ตัวที่ใช้ตอนนั้น ลำดับก็คือ local > global > system ถ้าไม่มีก็จะเลือกใช้ระดับต่อไปมาใช้
+    ก็คือเราก็ต้องอยู่ repository นั้นก่อนค่อยพิมพ์คำสั่งถูกไหม ไม่งั้นมันจะบอกไม่ถูกว่าเราใช้ สิทธิ์ใหนอยู่
+
+  #ให้ git เปิดด้วย vim
+    git config --global core.editor "vim"
+
+  #เปิดให้ command เป็นสี พวกคำสั่งต่างๆ
+    git config --global color.ui true
+
+  #set ให้บรรทัด newline หายไปจาก remote ตอน checkout
+    git config --global core.autocrlf true
+    git config --global core.autocrlf input
+
+  #set read log ให้อ่านแบบ less
+    git config --global core.pager ''
+    git config --global pager.diff "less -x1,5"
+    git config --global pager.show "less -x4"
+
+--### ทำ git ssh ###--
+  อธิบายการทำงาน ssh key สิ่งนี้มันคืออะไรในเชิงการทำงาน เช่น มันเอาไว้ login หรือเชื่อมต่อแบบไม่ต้องไส่ user password ถูกไหม เป็นการ set connect แบบ ssh เหมือนของ shell แสดงว่ามันก็ต้อง key ใคร key มันสิ
+ChatGPT said:
+   ใช่ครับ, SSH key เป็นวิธีการ เชื่อมต่อแบบไม่ใช้รหัสผ่าน (password-less authentication) ในการเข้าสู่ระบบหรือ เชื่อมต่อกับ remote server เช่น GitLab หรือ GitHub. นี่คือหลักการทำงาน:
+
+1. การใช้งาน SSH key:
+SSH (Secure Shell) ใช้สำหรับการเชื่อมต่ออย่างปลอดภัยระหว่างเครื่องของคุณกับเครื่องเซิร์ฟเวอร์ (เช่น GitLab หรือ GitHub) โดยไม่ต้องใส่ username และ password ทุกครั้ง.
+การใช้ SSH key จะประกอบด้วย คู่ของคีย์:
+Private key (เก็บไว้ในเครื่องของคุณ)
+Public key (เก็บไว้บนเซิร์ฟเวอร์ เช่น GitLab หรือ GitHub)
+2. การทำงาน:
+เมื่อคุณตั้งค่า SSH key และส่ง public key ไปที่ GitLab หรือ GitHub แล้ว, เซิร์ฟเวอร์จะใช้ public key ในการตรวจสอบว่าเครื่องที่พยายามเชื่อมต่อคือเครื่องที่มี private key ที่ตรงกันหรือไม่.
+หากตรงกัน, การเชื่อมต่อจะสำเร็จโดยไม่ต้องกรอกรหัสผ่าน.
+นี่เหมือนกับการ set connect แบบ SSH ที่ใช้สำหรับ shell ซึ่งใช้คีย์เพื่อยืนยันตัวตน (authentication) และสร้างการเชื่อมต่อที่ปลอดภัย.
+
+  1. cd /Users/Soulxsense/.ssh/
+  2. ssh-keygen -t rsa -C "soulxseeker4develop@gmail.com"
+  3. vi /Users/Soulxsense/.ssh/config
+  Host github.com-gitone  <<---add key1
+    AddKeysToAgent yes
+    UseKeychain yes
+    IdentityFile ~/.ssh/id_rsa
+
+  4. ssh-add --apple-use-keychain ~/.ssh/id_rsa   //ssh add
+  5. cat /Users/Soulxsense/.ssh/id_rsa.pub  //copy key to web
+
+
+---### ทำ difftool ####---
+  1. ขั้นแรกให้ Download ติดตั้ง progame merge
+
+  2. create file "extMerge"  path : /usr/local/bin/extMerge
+    #!/bin/sh
+    /Applications/meld.app/Contents/MacOS/meld $*   <<--add program merge
+
+  3. create file "extDiff" path: /usr/local/bin/extDiff
+    #!/bin/sh
+    [ $# -eq 7 ] && /usr/local/bin/extMerge "$2" "$5"  <---ชี้ไปที่ไฟล์ merge ที่ทำไว้
+
+  4. ให้สิทธ์
+    sudo chmod +x /usr/local/bin/extMerge
+    sudo chmod +x /usr/local/bin/extDiff
+
+  5. set config
+      git config --global merge.tool extMerge
+      git config --global mergetool.extMerge.cmd \
+            'extMerge "$BASE" "$LOCAL" "$REMOTE" "$MERGED"'
+      git config --global mergetool.trustExitCode false
+      
+      git config --global diff.external extDiff
+
+
+  6. ใช้ diif ได้เลย man
+    git diff xx1 xx2
+
+
+---### ทำ git mergetool ###---
+    git config --global merge.tool meld <<<---ไปใช้ program meld
+    git config --global  diff.guitool meld 
+    git config --global mergetool.keepBackup false
+
+    ใช้คำสั่ง git mergetool มันจะขึ้นมาให้ diff
+
+
+#########################
+###### git command ######
+#ดู status 
+  git status
+
+#ดู list log
+  git log
+  git log --oneline //ดู log แบบสั้น
+  git log -2 --oneline /limit 2 จากด้านบน
+  git log --author="John" //by คน
+  git shortlog //show แค่ user และ comment
+  git log --graph --oneline --decorate //show แบบ grap เหมือนในโปรแกรม อย่างเจ๋ง
+
+    *   3519db4 (HEAD -> feature) 7merge
+    |\  
+    | * caf7914 (main) 5 <<--- มีวงเล็บคือจาก main, ถ้าไม่มีคือของมันเอง (feature)
+    * | 3aad13f 6
+    * | 92c910f 4
+    |/  
+    *   5ade80b 3
+    |\  
+    | * 1f214bb (origin/main, origin/HEAD) 1  <<--- ตัวที่มี () ของตัวข้างนอก, ตัวที่ไม่มี
+    * | 3ed31bb 2
+    |/  
+    * fb926fe create xx.txt file 
+    อยู่ที่ branch feature
+
+  git reflog โชว์ log ที่ทำมาทั้งหมด แม้ว่าจะลบไปแล้ว ถ้าต้องการกลับไปก็สามารถ reset --hard กลับไปได้เสมอ เจ๋งจัด
+
+#ลบไฟล์ที่ยังไม่ add . ลบแบบลบจริงๆ
+  git clean -f
+
+# git commit
+  git commit -am "message" //ใช้กับ new file ไม่ได้   (a คือไม่ต้อง git add ถ้า add . ไปแล้วก็ไม่ต้องใช้ a ก็ได้ ใช้แค่ m ไปเลย)
+
+#ดูว่ามี origin remote อะไรบ้างที่ผูกไว้ (origin มักหมายถึง "ที่เก็บต้นทาง" ซึ่งโดยทั่วไปแล้วจะชี้ไปยัง remote repository )
+  git remote -v   
+
+#origin remote
+   git remote add origin https://github.com/soulxseeksgg/front-end (url เข้าไปใน folder ของ project ใดๆบนเว็บ github)
+
+
+#git push เอาไฟล์อัพเดทขึ้น server
+  git push -u origin <branch> (ใช้ -u มันจะจำชื่อ remotename กับ branch ไว้ ครั้งต่อไป ใช้แค่ git push, git pull, git fetch ไม่ต้องไส่ remote branch)
+
+  #push แบบไปทับ remote 
+  git push -f origin main  //ทับจริงจังทับทั้งไฟล์ทั้งประวัติ หายหมด
+  
+  #push แบบชื่อ branch บน local ไม่ตรงกับ remote
+  git push origin main:master 
+
+  #ตรวจสอบ branch
+  git branch
+
+  
+  # push ให้ create branch ใหม่บน remote
+  git push origin gg <-- (gg branch ที่ยังไม่เคยมีบน remote)
+
+#git pull
+  #config rebase 
+  git config pull.rebase false  (ใช้ตัวนี้แหละ ถ้าใช้ rebase กับ brach หลัก commit conflict กันบานแน่)
+  git config pull.rebase true 
+  git config pull.ff only //เป็น defualt กรณีที่บน remote มีเยอะกว่า local มันจะเอาลงมาต่อเลย (fast-forword)
+  git pull //แล้วแก้ conflicts แล้ว commit change
+  
+#git clone
+  git clone git@github.com:soulxseeks/test.git
+
+#อัพเดทจาก server ลงมา remote
+  git fetch
+
+#crate branch
+  git branch <branchname> //สร้าง branch แบบไม่ได้ switch ไป
+  git checkout -b <branchname>  //สร้าง พร้อม switch ไป branch ใหม่
+
+#switch branch
+git checkout <branchname>
+
+#delete branch
+git branch -D branchname
+
+#ดู commit ล่าสุดของแต่ละ branch
+git branch -v
+  * develop e9668de save xx2.txt
+    main    e9668de save xx2.txt
+
+#show branch ที่ยังไม่ merge หรือ merge แล้ว
+git branch --merged
+git branch --no-merged
+
+#ลบ branch บน remote
+git push origin :master
+
+#git help <verb> //ขอความช่วยเหลือ
+ตัวอย่าง git help commit
+
+#git reset
+git reset filename //เอาไฟล์กลับอยู่ unstage
+git reset --hard <commit> // reset แบบจริงจัง clear หมด
+git reset --mixed <commit> //เอาไฟล์กลับไปสู่สถานะ unstate ไม่ลบเนื้อหาใดๆ
+git reset --soft <commit> // เอาไฟล์กลับไปสู่สถานะ stated ไม่ลบเนื้อหาใดๆ
+git reset --hard origin //reset ให้เหมือนกับบน remote
+
+#git stash เอาไฟล์ที่ยังไม่ได้ commit เก็บไว้ก่อน ไม่ให้ขึ้น status
+  git stash (add . ก่อน)
+  git stash list
+  git stash apply stash@{0} //เอาคืนมา
+  git stash drop stash@{0}  // ไม่เก็บละ ทิ้งเลย
+
+#แก้ comment ใน commit 
+  git commit --amend
+
+#git tag
+  ใช้ git tag v1.0 ใน commit ที่เราต้องการให้เป็น version มันจะอยู่กับ commit นั้น
+  git tag -a v1.1 -m "Relese LTS" //แบบเพิ่ม text
+  git show v1.0 //มันจะโชว์ message ด้วย
+  git tag -d v1.0 //ลบ
+  git tag //show list tag
+
+  git push --tags -f //ส่ง tag ขึ้น server
+  git push origin :v1.0 //delete tag on server  
+
+------------------------------------------------------------
+
+  
+
+#rebase
+https://www.youtube.com/watch?v=f1wnYdLEpgI
+ 1. git rebase <branch>
+ 2. แก้ conflicts และ add commit
+    ถ้า commit ใน branch เรามีอยู่ก่อนหน้า  branch ที่จะเอาเข้ามาอยู่ 2 commit เราก็ต้องแก้ commit ใหม่ 2 commit เพื่อเอาไปไว้ด้านบน
+ 3. เลือก option ไปต่อสำหรับ rebase
+    3.1 ไปต่อ git rebase --continue
+    3.2 ข้ามการ commit นี้ไป git rebase --skip (แม่งไม่เอา commit นั้น ทิ้งเลยแบบนั้น)
+    3.3 ยกเลิกกลับไปสถานะก่อน rebase, git rebase --about
+
+ถ้ามี 2 ก็ต้องแก้ conflict 2 อันให้เป็นโค๊ดสวยๆเหมือนเดิมและโค๊ดเราและเขายังอยู่ครบ แค่เพื่อเอา commit เราไปไว้ด้านบน
+    
+
+#git merge
+เป็นการรวม branch ทั้งสองกิ่งเข้าด้วยกัน
+*   0d08fd8 (HEAD -> developX) merge <<<--- อันนี้คือ commit merge ไม่ต้องทำ continue อะไรเหมือน rebase ด้วย แก้ conflicts เสร็จ แล้วก็ commit ก็เสร็จเลย
+|\  
+| * fcd1558 (featureX) 3
+* | 91d42ed (develop) 2
+* | ad4b8f6 1
+|/  
+* ba8ed92 (origin/main, origin/HEAD, main) 0
+
+
+ตัวอย่าง fast-forward
+  Remote (GitLab): A --- B
+  Local:           A --- B --- C
+
+  เมื่อ commit
+  Remote: A --- B --- C
+  สังเกตุเส้นมันจะเหมือนกันยังไม่ต่างกัน
+
+Non-fast-forward 
+  Remote (GitLab): A --- B --- D  //สังเกตุเส้นมันจะแยกกันไปแล้ว ไอ้ข้างบนก็ commit 
+  Local:           A --- B --- C // ไอ้ข้างล่างก็ commit
+
+วิธีแก้ Pull ก่อน push
+
+
+  1. git rebase -i a56203c65fc3894620a0e75ed3a49a9547e0cdd0  //เลือก commit ที่จะลบ
+    มันจะขึ้นประวัติการ commit ของไฟล์นั้นมาให้เลือกว่าจะเอา commit ให้ไว้ จะเอา commit ให้ทิ้ง เช่น commit นั้นมี secret ติดไปด้วยต้องการลบออก
+    pick bd44cfe Commit ที่ 1
+    pick a56203c Commit ที่ 2  //ลบ commit2 ออกเพราะมันมี secret แปะอยู่ใน commit นั้น จากนั้น :wq! save
+    pick 9f0e13a Commit ที่ 3
+
+  2. แล้วเข้าไปเลือกโค๊ดที่จะใช้ในไฟล์
+    head ==>>>
+    new =>>>> อะไรของมันน่ะ
+
+  3. add . และ commit ใหม่
+
+  4.git rebase --continue   
+  
+     //process  1. (ลบ commit ที่ไม่ต้องการออก)
+                2. (เลือกว่าจะเอาอะไรไว้ แล้ว commit ไฟล์นั้นใหม่)
+                3. (เชื่อมต่อต่อ commit ใหม่ในช่วงที่ขาดข้างล่างนั้น)
+  
+    แม่งถ้ามีหลายอันก็ต้องทำทีละข้อด้วยนะ
+
+
+
+

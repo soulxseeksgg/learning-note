@@ -1,0 +1,433 @@
+ประวัติความเป็นมา
+    GitLab พัฒนาโดย GitLab Inc. (ก่อตั้งปี 2011) เน้นความครบวงจรใน DevOps Lifecycle (source control, CI/CD, security, monitoring)
+    GitHub พัฒนาโดย GitHub Inc. (ก่อตั้งปี 2008)
+    เป็นคู่แข่งกัน โดย github เริ่มทำ Devops ใช้ชื่อ GitHub Actions ซึ่งเปิดตัวเมื่อปี 2019
+
+    ประวัติของคำว่า git มาจาก ระบบ version control ของ Linus Torvalds ผู้สร้าง Linux ทำในปี 2005 และทำเป็น open source ตั้งแต่แรก เน้นแบ่งปัน
+     ก็คือสไตล์โปรแกรมเมอร์ใจกว้าง ไม่ค่อยสนใจตำแหน่งยศฐา เพราะเขาสนุกที่ได้ทำโปรแกรมให้คนใช้ อันนี้คือที่สุดแล้วในฐานะโปรแกรมเมอร์ 
+
+web: https://youtu.be/fwtxi_BRmt0?si=0BWu_FenjAm8H-dK
+step
+    เว็บ gitlab 
+        login ด้วย github
+
+        1.สร้าง group ชื่อ devops (แก้ไขชื่อได้หมด) 
+            new project ชื่อ k8s-connection เลือก target deploy เป็น kubernetes  
+            (เปลี่ยนชื่อ group ไปที่ เข้าไปที่ group ก่อน > เมนูซ้ายมือ setting > general > จะมีให้เปลี่ยนชื่อ แต่เปลี่ยน Id ไม่ได้)
+
+        3.  Install the agent manually
+            เริ่ม create agent congfiguration file (เมนูแรกภายใต้ install)
+            copy path file ไปสร้าง ".gitlab/agents/<agent-name>/config.yaml" ใน project ของเรา gitlab กำหนดตำแหน่งวางไฟล์ไว้ให้แล้ว
+            เปิดโปรเจคสร้างไฟล์ขึ้นมา ในช่อง path ".gitlab/agents/k8s-connection/config.yaml" ไป
+                                                                        ^
+                                                                    เปลี่ยนชื่อเป็น agent ของตัวเอง
+            กด commit change เลย ยังไม่ต้องทำอะไร       
+            จะได้ config.yaml มาใน devops > k8s-connection > Repository > config.yaml
+            กดกลับไปที่ folder root คือ k8s-connection จะเจอไฟล์ ที่มันยาวๆ แบบนี้ .gitlab/agents/k8s-connection/config.yaml config มันจะอยู่ในนั้น
+
+            //ดู log ไม่ต้องเติม -l เพราะไม่ใช่ label
+            k logs k8s-connection-gitlab-agent-v2-7f999554bf-6bnkj -n gitlab-agent-k8s-connection
+
+        4. register agents (เมนูสองภายใต้ install)    
+            ไปที่เมนูซ้ายมือ เลื่อนได้ เลื่อนลงมาหาคำว่า operate > เลือก Kubernetes cluster > จะได้หน้าจอว่างๆมา
+                กดที่ connect cluster agents สีฟ้าๆ
+                เลือก agents ของเราคือ k8s-connection ข้างล่าง ส่วนข้างบน dedafault ไว้ > กด register ไป
+                    จะได้ token ของ agents มา : glagent-zE8toK3igoGxgwnszpmS2ZZLYzEo2g8B9ap_9Mvugb7Akz8UWw 
+                    และข้างล่างมีแนะนำให้ติดติด chart gitlab บน k8s
+                        helm repo add gitlab https://charts.gitlab.io  //---add repo ของ gitlab ไปก่อนเพื่อจะได้ใช้ง่ายๆ ผ่านการเรียกชื่อ
+                        helm repo list  // ดูที่ add ไว้
+                        helm repo update   //อัพเดท ไม่มีอัพเดทรายตัว
+
+                        helm upgrade --install k8s-connection gitlab/gitlab-agent \  //install  agents ไว้บน k8s
+                            --namespace gitlab-agent-k8s-connection \
+                            --create-namespace \
+                            --set config.token=glagent-zE8toK3igoGxgwnszpmS2ZZLYzEo2g8B9ap_9Mvugb7Akz8UWw \   //อ้างอิงไปที่ agents ที่เราสร้าง
+                            --set config.kasAddress=wss://kas.gitlab.com  //ใช้การเชื่อมต่อจาก k8s ไป gitalb web หรือ host ด้วย websocket ถ้ามีอะไรอัพเดทก็ส่งให้กันผ่าน chanel เลยเปิดไว้ตลอด เพื่ออัพเดท
+
+                        helm uninstall k8s-connection --namespace gitlab-agent-k8s-connection    
+
+
+                refesh ในหน้า devops > k8s-connection > Kubernetes ดู
+                    มันจะขึ้นสีเขียว Connected
+
+         (agent)            (websocket ready)
+     (k8s-connection) - - > - - connect - - - >  - -  - kubernetes
+            |                                              ^
+            |                                              ^
+          4.triger (ผูก)                                   5.pull 
+            |                                              ^
+            |           (ภายใต้ repo k8s-data)              ^
+        (k8s-data)  - - - - gitlab runner  - - 3.push - - registyr
+            |               (2. build image)
+            |
+        1. commit/push
+            |
+            user   
+
+        5. สร้างโปรเจคใหม่มาอีกตัว ชื่อ k8s-data
+             เข้าไปที่ project กด code > สามารถ push ขึ้นขึ้นจากตรงนี้ (https://gitlab.com/group11820151/k8s-data.git)         
+
+             สร้าง image
+
+         6. ทำ SSH Key เพื่อให้เครื่องใช้ ssh ต่อไปที่เว็บ gitlab ได้โดยไม่ต้องไส่ user, password ทุกครั้ง คือจำไว้เอาไว้เลย
+            ส่วนประกอบไฟล์
+            ภายใต้ path: ~/.ssh/                                       (เข้ารหัสแบบ rsa)    (email ไม่จำเป็นต้องเหมือนกับ login)   (path ที่เก็บไฟล์ gen มันจะได้ออกมาสองไฟล์)
+                    config  //ชี้ไปที่ไฟล์ rsa ข้างล่าง                          v                         v                         v     
+                    id_gitlab_rsa  //ได้จากการ gen จากคำสั่ง $ sh-keygen -t rsa -b 4096 -C "pontree.kongjanta@gmail.com" -f ~/.ssh/id_gitlab_rsa
+                    id_gitlab_rsa.pub //ได้จากการ gen 
+
+            
+            จะได้ไฟล์ id_gitlab_rsa  //ไฟล์นี้เก็บไว้เป็นความลับ
+                    id_gitlab_rsa.pub //ไฟล์นี้ต้องเอาไปแปะบนเว็บ gitlab
+
+            cat ~/.ssh/id_gitlab_rsa.pub //เพื่อจะเอา key ไปแปะบนเว็บ
+
+            เข้าเว็บ gitlab > ไปที่โปรไฟล์ คลิ๊ก > preferace > SSH Key เมนูซ้ายมือ > Add key ไส่ public key ที่ก้อปไว้มาไส่ > กด add key
+
+            ตั้งค่าไฟล์ vi ~/.ssh/config  //ตั้งค่าให้ชี้ไปที่ไฟล์ rsa
+                
+                ไส่ data ในไฟล์
+                # GitLab 
+                Host gitlab.com
+                    HostName gitlab.com
+                    User git
+                    IdentityFile ~/.ssh/id_gitlab_rsa
+
+            ทดสอบการเชื่อมต่อ
+                ssh -T git@gitlab.com
+                            (ชื่อ gitlab)
+                                v
+                จะขึ้น Welcome to GitLab, @soulxseeksgg! //ต่อได้!! 
+
+        7.temp #ลอง push image ขึ้น registry gitlab แบบทำเองเอาจากเครื่องขึ้น (ซึ่งที่จริงบน ci/cd มันทำบนนั้นก็ได้ แต่นี้ลอง push ขึ้นดูก่อน)
+            - ไปที่ terminal เครื่องเรา
+                ใช้คำสั่ง docker login registry.gitlab.com เพื่อ login gitlab และเชื่อมต่อเว็บ
+                user: ใช้ email ที่ login github pontree.kongjanta@gmail.com
+                password: ต้องใช้ Access Token ไปที่รูปโปรไฟล์ คลิ๊กขวา > preferrance > Access Token ที่เมนูซ้ายมือ > กด add token 
+                    - ตั้งชื่อเป็น "Docker Login" 
+                    - เลือกสิทธิ์เป็น read registry และ write registry 
+                    - แล้วกด create token
+                    - กดดูที่รูปตา จะเจอ token ก้อปปี้มา
+                    - เอา token มาไส่ใน password login
+
+                พอ login เชื่อมต่อกับเว็บ gitlab ได้แล้ว จะขึ้น login success    
+
+        
+            - ทำการสร้าง image และ tag ไปที่เว็บ gitlab เพื่อจะได้ push ขึ้นไปได้                                        
+                docker build -t registry.gitlab.com/devops1924452/k8s-myapp/myapp:latest .
+                                                        ^            ^
+                                                    (group project  ชื่อ project จริงๆมันชี้ไปที่ registry ของ project นั้นแหละ) 
+
+            - ดู image ที่สร้าง docker > image
+                จะได้ image ชื่อ registry.gitlab.com/devops1924452/k8s-myapp/myapp latest 
+                                                            
+            - push ขึ้น registry (gitlab registry มี registry ให้ภายใต้แต่ละโปรเจคอยู่แล้ว แค่ push ขึ้นไป)             
+                docker push registry.gitlab.com/devops1924452/k8s-myapp/myapp:latest
+
+            - ลอง refesh ดูในหน้า devops > k8s-myapp > Container Registry จะได้ image มาตัวหนึง
+
+       
+
+        8. สร้างไฟล์ .gitlab.ci.yml  (จะทำให้มัน build สร้าง image และ deploy เองละ)
+            ไปที่ replo k8s-data > กด new file > ตั้งชื่อในช่องไส่เป็น .gitlab.ci.yml
+                              (code > repository)
+
+            how to config file ค้นหา google "gitlab container registry cicd"
+                เข้าหัวข้อ Build and push container images to the container registry เอกสารนี้ https://docs.gitlab.com/ee/user/packages/container_registry/build_and_push_images.html 
+                ตรง config file .gitlab-ci.yml ด้านนล่าง
+               //เพิ่ม 
+                stages:
+                - build
+
+                build_image:
+                image: dokcer
+                stage: build
+                services:
+                    - docker:dind
+                script:
+                    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+                    - docker build -t $CI_REGISTRY/group11820151/k8s-data/myapp:latest .
+                    - docker push $CI_REGISTRY/group11820151/k8s-data/myapp:latest
+                    - echo "build image"
+
+        11. deploy
+            search "using gitlab ci/cd with a kubernetes cluster"   
+                เข้าเว็บ copy ส่วน deploy 
+                //โค๊ด ไส่ในไฟล์ k8s-data > gitlab-ci.yml
+                stages
+                  - deploy  // เพิ่ม stages deploy
+
+                deploy_k8s:
+                stage: deploy         (url ตัว connection)     (ชื่อตัว connection (ชื่อโปรเจค))
+                variables:                     v                     v
+                    KUBE_CONTEXT: group11820151/k8s-connection:k8s-connection
+                image:
+                    name: bitnami/kubectl:latest //ชื่อ kubectl เอาไว้รันคำสั่งบน gitlab นี้แหละ
+                    entrypoint: ['']
+                script:
+                    - kubectl config use-context $KUBE_CONTEXT  //อ้างอิงตัวแปรจากข้างบน
+                    - kubectl get pods  //ถ้า connect ได้ get ดู
+                                                  
+        14. ฝั่ง kubernetes                                                                  
+            คำสั่งสร้าง pod เป็นแสดงออกมาเป็น yaml file (-o yaml) สร้างแบบ pod ง่ายๆ ไม่ได้เป็นเต็มฟอร์มเหมือนไฟล์ deployment ซึ่งมันก็รันได้เหมือนกัน                                           
+            kubectl run login-app --image=registry.gitlab.com/group11820151/k8s-data/myapp:latest --dry-run=client -o yaml  Enter  //คำสั่ง --dry-run=client คือยังไม่ต้องส่งไป kubernetes จริง แค่ลองรันบน client
+            kubectl run login-app --image=registry.gitlab.com/group11820151/k8s-data/myapp:latest --dry-run=client -o yaml > pod.yaml (เซฟออกมา แม่งยังรันคำสั่งอยู่ในเครื่องอยู่เลย ออกมา path doc)
+                                             ^                                               ^
+                                             ^                                            (กดเข้าไปใน image จะมี tag อยู่จำชื่อไว้มาใช้ตรงนี้)
+                                        (ไปที่ k8s-myapp > deploy > containerRegistry > จะเจอ image กดจุดสามจุด for show full path ก้อปปี้มา)
+            #myapp-spec.yaml
+                apiVersion: v1
+                kind: Pod
+                metadata:
+                labels:
+                    run: login-app
+                name: login-app
+                namespace: myapp
+                spec:
+                containers:
+                - image: registry.gitlab.com/group11820151/k8s-data/myapp:latest
+                    name: login-app
+                restartPolicy: Always
+                imagePullSecrets:
+                    - name: app-secret  //<<< เพิ่ม secret ของเราเข้าไป
+
+            vi อ่านไฟล์แล้วลบพวกนี้ออก แล้ว save
+
+        15. สร้าง secret
+            วิธีแรก สร้างด้วยคำสั่ง
+                kubectl create secret  Enter ไปมันจะมีให้เลือกว่าจะใช้กับอะไร                                                                                                                                                                       (ในเว็บมันจะแยกกันให้เห็นชัดเจน)           
+                                    เลือกเป็น docker registry                                                     (gitlab > คลิ๊กที่รูป icon profile > edit progile > Accout > ตรงหัวข้อ Change username > username จะอยู่หลัง url https://gitlab.com/  soulxseeksgg)
+                kubectl create secret docker-registry --help มันจะมีตัวอย่างคำสั่งให้เลือก                                           v
+                kubectl create secret docker-registry myapp-secret --docker-server=registry.gitlab.com --docker-username=soulxseeksgg --docker-password=glagent-xxxzzz --dry-run=client -o yaml > myapp-secret.yaml
+
+                #myapp-secret.yaml  
+                    apiVersion: v1
+                    data:
+                    .dockerconfigjson: xxxxx token ยาวๆ xxxxx >
+                    kind: Secret
+                    metadata:
+                    creationTimestamp: null
+                    name: myapp-secret
+                    namespace: myapp
+                    type: kubernetes.io/dockerconfigjson   
+
+
+            วิธีที่สองสร้างด้วย template และเข้ารหัสเอง
+                # gitlab-auth-registry.json
+                    {
+                        "auths": {
+                            "registry.gitlab.com": {
+                                "username": "soulxseeksgg",
+                                "password": "glagent-xxxxxzzzzz",  //<<<  token เข้า registry gitlab
+                                "email": "pontree.kongjanta@gmail.com",                                                                                      (อย่าลืมไส่ -n ไม่งั้นมันจะเพิ่ม \n ให้ถ้าไม่ไส่ เพราะ echo ปกติมันจะเพิ่ม newline ให้ auto)
+                                "auth": "xxxxxzzzzzaaaaaa"   // << เข้ารหัส echo -n "soulxseeksgg:glpat-xxxxxzzzzz" | base64
+                            }
+                        }
+                    } 
+
+                cat gitlab-auth-registry.json | base64
+                
+                เอามาแปะใน ตรง .dockerconfigjson:
+
+                #ไฟล์ myapp-secret-gitlab.yaml
+                apiVersion: v1
+                data:
+                .dockerconfigjson: xxxxxxxzzzzzzzz
+                kind: Secret
+                metadata:
+                creationTimestamp: null
+                name: myapp-secret-gitlab
+                namespace: myapp
+                type: kubernetes.io/dockerconfigjson
+
+                                                                                                                                                           ^
+        16. เอา secret ขึ้นก่อน
+            kubectl apply -f myapp-secret.yaml
+            kubectl apply -f myapp-spec.yaml                                                                                                                                                (gitlab > Access Token > ตรง Personal access tokens > ถ้าสร้างไว้แล้ว แล้ว scope มันเป็น read_registry, write_registry และยังไม่หมดอายุก็ใช้อันเดิมได้ อันก็คือตัวเดียวกันนั้นแหละที่ต้องใช้ในการ login registry ของ gitlab)
+                                                                                                                                                        (ถ้าไม่ได้จดไว้ มันไม่ได้โชว์ให้เห็นได้อีกรอบ ถ้าไม่จดไว้ตั้งสร้าง new ใหม่)
+
+        17. ปรับแต่ง service ให้เข้าถึง pod ได้
+            อันนี้ไฟล์ spec 
+                apiVersion: v1
+                kind: Service
+                metadata:
+                name: myapp
+                namespace: myapp
+                labels:
+                    app: myapp
+                spec:
+                type: ClusterIP  <<<-- ตรงนี้ใช้เป็น NodePort ได้ สามารถให้เข้าได้จาก ข้างนอกได้ โดยใช้
+                ports:
+                    - port: 8080  // port ของ service
+                      targetPort: 8080  // port ของ pod เอง ถ้าไม่ใส่ค่านี้มันจะ default ให้เป็น 8080 เหมือนกับ port ของ service
+                      nodePort : 30080  // port สำหรับ NodePort เปิดให้เข้ามาจากข้างนอก
+                      protocol: TCP  //ถ้าไม่ไส่จะ default เป็น TCP ให้ ใช้ในการสื่อสารในระหว่างเครื่องพวก HTTP , HTTPS (REST ไม่ใช่โปรโตคอล แต่เป็น รูปแบบการส่งอข้อมูลรูปบบ HTTP อีกทีใช้ json อะไรก็ว่าไป)
+
+         127.0.0.1 หรือ localhost
+                 v
+        พอจะใช้ <NodeIp>:30080 เมื่อเปิด NodePort            
+
+        (docker destop หรือ 127.0.0.1 หรือ localhost)  การเปิด NodePort คือการใช้เรียกผ่าน Ip ของ Node ตรงนี้เรียกผ่าน port 30080
+          v
+        Node > Cluster > Pod > App เรา
+
+        ถ้าไม่อยากเปิด NodePort ให้เป็น External ก็ใช้วิธี Port-forword เอา เพื่อเข้าถึงต่อ pod ชั่วคราว
+
+        ใช้คำสั่งดูมันจะใช้ nodePort เป็น 8080/30080 TCP ให้
+        kubectl describe svc myapp -n myapp
+
+
+
+        ลอง สร้าง pod และ pull image จาก registry มาแบบง่ายๆ
+            kubectl create secret docker-registry myapp-secret \
+            --docker-server=registry.gitlab.com \
+            --docker-username=soulxseeksgg \
+            --docker-password=glpat-xxxzzz \
+            --docker-email=pontree.kongjanta@gmail.com \
+            -n myapp
+
+
+            kubectl run myapp-test --image=registry.gitlab.com/group11820151/k8s-data/myapp:latest \
+            --overrides='
+            {
+                "apiVersion": "v1",
+                "spec": {
+                "containers": [{
+                    "name": "myapp",
+                    "image": "registry.gitlab.com/group11820151/k8s-data/myapp:latest"
+                }],
+                "imagePullSecrets": [{
+                    "name": "myapp-secret"
+                }]
+                }
+            }' -n myapp --restart=Never
+
+            ลบทิ้งหลังทดสอบ
+            kubectl delete secret myapp-secret -n myapp
+            kubectl delete pod myapp-5fb55f8d5b-gksfb -n myapp
+
+
+        ใช้งาน
+        ดู ip external
+            kubectl get nodes -o wide 
+
+        ถ้าเป็น Docker ใช้เป็น localhost:30080 ไปเลยเพราะมันเป็น  local Kubernetes  
+        
+        localhost:30080/myApp/login
+        POST {
+            "email":"soulxseeks4temp@gmail.com"
+            ,"password":"1234x"
+        }
+
+        ทำงานได้เหมือนกัน
+
+        หรือ curl http://localhost:30080/actuator/health ผ่าน command ได้เหมือนกัน ได้ output {"status":"UP","groups":["liveness","readiness"]}
+
+       
+       18. ทำให้มัน triger กันจาก repo k8s-myapp ไป triger บอก repo k8s-connection ที่เชื่อมต่อแบบ websocet อยู่กับ kubernetes ตลอดเวลา บอกให้มันไปดึง images มาใหม่จาก gitlab registry เพื่ออัพเดทโค๊ดใหม่ที่พึ่ง commit ขึ้นไป
+            ไปที่ k8s-connection เพิ่ม script ให้มัน triger ในไฟล์ config.yml
+            
+            ในเว็บตรงหัวข้อ "Authorize the agent to access projects in your groups" จะมีโค๊ดของ ci_access ก้อปมาแปะ
+            #ไส่ 3 บรรทัดนี้ไป
+            ci_access:     
+                groups:            
+                    - id: group11820151/k8s-data  // << path ของ k8s-data
+ 
+
+        19. ไปที่ pipeline ของ k8s-data กด rerun ใหม่ 
+                            มันจำทำ step deploy 
+                                    v
+            build /    docker /  deploy  
+
+    
+        20 พอ commit โค๊ดขึ้นไปใหม่ปุ๊บ pipeline ทำงานเองเลย build jar ใหม่, สร้าง image เอาไปเก็บไว้บน registry ใหม่ , แล้วก็ deploy ไปยัง k8s ใหม่ (แต่ตอนนี้ยัง error)
+
+        21. แม่ง pipeline ต่อ agent ไม่ได้
+        
+        deploy_k8s:
+        stage: deploy
+        script:
+            - kubectl config view  //<<<<< เพิ่มคำสั่งดูการตั้งค่า kubeconfig
+
+        มันจะโชว์ แสดงว่ายังไม่ได้เชื่อมไอสัส
+        $ kubectl config view
+        apiVersion: v1
+        clusters: null
+        contexts: null
+        current-context: ""
+        kind: Config
+        preferences: {}
+        users: null    
+
+
+        22. แยกการใช้ agent ในแต่ละ environment dev staging prod อัพเดทไปแต่ละที่
+        group: toon.org
+            project1
+                agents/
+                    agent-prod
+                        config.yaml  <<< kubeconfig
+                    agent-staging
+                    agent-dev
+                myapp
+            project2
+                agents/
+                    agent-prod
+                    agent-staging
+                    agent-dev
+                otherapp
+
+
+
+        ตั้งการเข้าถึง agent 
+            แบบ group
+            ci_access:
+            groups:
+                - id: group1
+                - id: group2
+
+            แบบ project
+            ci_access:
+            projects:
+                - id: group1/myapp1
+                - id: group2/myapp2
+    
+        คำสั่งให้ kubernetes มัน pull image จาก gitlab registry และ restart pod แบบ rolling update ค่อยเป็นค่อยไปทีละ pod ไม่ดับเครื่องทิ้งใหม่ทันที
+                                                        #myapp-spec.yaml
+                                                        containers:
+                                                            - image: registry.gitlab.com/group11820151/k8s-data/myapp:latest
+                                                            name: myapp
+                                                                    ^
+                                (ชื่อ deployment)   (ชื่อ container ตรงนี้ในไฟล์ spec)
+                                            v       v
+            - kubectl set image deployment/myapp myapp=$CI_REGISTRY/group11820151/k8s-data/myapp:latest -n myapp
+            - kubectl rollout status deployment/myapp-deployment -n myapp
+
+        เชื่อมต่อ log จาก kubernetes ไปยัง logstash elasticsearch
+        Filebeat เจ้าของ: Elastic (บริษัทเดียวกับ Elasticsearch และ Kibana)    
+
+
+        การแยก dev staging production
+        ใช้ folder project เดียวกันแต่แยก branch ของใครของมัน ไฟล์ deployment แยกกัน
+        /src/
+        /config/
+            dev-config.yaml
+            staging-config.yaml
+            prod-config.yaml
+        .gitlab-ci.yml
+
+        ไฟล์ .gitlab-ci.yml ใช้ไฟล์เดียวกัน มี 3 stage เท่าเดิม แต่
+
+
+        โครงสร้างโปรเจคที่เป็นไปได้ 
+            โปรเจคคือหน่วยที่เล็กที่สุดแล้ว ไม่สามารถโปรเจคซ้อนโปรเจคได้
+        Main Group: MyOrganization
+            Subgroup 1: k8s-connection
+                Project 1: k8s-agent
+                Project 2: k8s-microservice1
+                Project 3: k8s-microservice2
+            Subgroup 2: data-services
+                Project 1: data-processing
+                Project 2: data-storage
+
+
+        --dry-run=client //คำสั่งนี้จะไม่สร้างจริง        

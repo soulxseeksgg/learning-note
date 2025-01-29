@@ -1,0 +1,14 @@
+run image on kubernetes
+
+1. install kubernetes เอาผ่าน docker ก่อนก็ได้ auto create sigle-node ให้
+
+2. ใช้คำสั่ง get all ดู มันจะโชว์ทั้งหมดทั้ง cluster namespace node pods deployment
+    kubeclt get all
+    
+    โชว์แบบเฉพาะ namespace    
+    kubectl get all -n <namespace>
+
+
+
+2. ติดตั้งโปรแกรมต่างๆที่จำเป็นผ่าน helm เช่น kafka postgres
+   2.1 ทำ forword port

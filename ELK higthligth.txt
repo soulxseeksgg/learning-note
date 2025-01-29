@@ -1,0 +1,828 @@
+ElasticsSearch
+    install
+        1. install extendsions: Docker ใน VsCode
+
+        2. สร้างไฟล์ ไฟล์ docker-compose.yaml
+            services:
+                elasticsearch:
+                    container_name: elasticserach
+                    image: docker.elastic.co/elasticsearch/elasticsearch:sha256-fff57a996ea17bad3163108f6f3221c7f5a43cac20bffea5082c49eb4d7950e5 //ใช้จากเว็บ https://www.docker.elastic.co/ pull มาก่อนมาเป็น images
+                    environment:
+                    - discovery.type=single-node //-- set ในหัวข้อ (elastic co > elastic guide > Set up Elasticsearch > Configuring Elasticsearch > Discovery and cluster formation settings > ตรง discovery.type ใช้เป็น single-node)
+                    - xpack.security.enabled=false //-- ยังไม่ต้อง password
+                    ports:
+                    - 9200:9200 //port ของ elasticsearch
+                    volumes:
+                    - ./data:/usr/share/elasticsearch/data  //map volume
+  
+                kibana:
+                    container_name: kibana
+                    image: docker.elastic.co/kibana/kibana:sha256-ffbd605e4891c98d502bd78f474bbe424503cf81496a1bb2a71b58bc8f7742c1
+                    environment:
+                    - elasticsearch.hosts:=http://localhost:9200
+                    ports:
+                    - 5601:5601
+
+        4. docker compose up -d  //start docker compose
+           docker compose down
+
+        5. map volume ให้ชี้มาบนเครื่อง เวลา stop continaer ไฟล์จะไม่หาย
+           5.1 ติดตั้ง Extendsions: Dev container เพื่อใช้เข้าไป remmote ใน container
+           5.2 ซ้ายมือ กดเมนูจอคอมลูกโลก เข้าไปจะเจอ elasticsearch container กดเข้าไปใน ลูกศร
+           5.3 มันจะเข้า command มาใน path /usr/share/elasticsearch/data แล้วก้อป path ไว้
+                disconnect ออกไป 
+                docker compose down
+        8. เอา path ที่ก้อปมา set volume ให้แอพ elasticsearch ในไฟล์ yaml
+            volumes:
+                - ./data:/usr/share/elasticsearch/data --- ./data คือฝั่งเครื่องเรา ข้างหลังคือ path ข้างบน
+        9. run ใหม่ $ docker compose up -d
+
+        10. ลอง call ดู สามารถใช้ผ่าน curl localhost:9200 ผ่าน command หรือผ่าน browser ได้หรือ call ผ่าน postman ก็ได้
+            จัด formate สวยๆ ถ้าใช้ command
+                brew install jq 
+                curl localhost:9200/_cluster/health | jq
+    
+                แบบแปะ method และ header พร้อม json
+                curl -X POST localhost:8080 -H "Content-Type: application/json" -d '{"key": "value"}'
+Kibana
+    ใช้ query ใน kibana Command query insert update
+    เปิด kibana localhost:5601
+        ไปที่เมนูซ้ายมือ Management > DevTool จะเจอหน้า query 
+
+    1. ดูว่าใช้งานได้ไหม 
+        ใช้ GET _cat/indices?v //เหมือนโชว์ all table
+
+    2. สร้าง index
+        ใช้ PUT user (สร้างชื่อ index เฉยๆ ยังไม่ต้องไส่ body)
+
+    3. insert ข้อมูลลง index
+        POST user/_doc
+        {
+            "name": "toon"
+            ,"email": "toon@gmail.com"
+        }  
+
+    4. select ดูข้อมูลใน index 
+        GET user/_search        
+
+    5. update data หรือเพิ่มบางคอลัมท์เข้าไปเพิ่ม ใช้คำสั่งเดียวกัน
+        POST user/_update/<ID>
+        {
+            "doc": {
+                "name": "toongg"  //ถ้าคอลัมป์ตรงกันมันจะอัพเดทข้อมูลเดิมให้
+                ,"address": "99/11"  //ถ้าเป็นคอลัมป์ใหม่มันจะเพิ่มคอลัมป์ใหม่พร้อม value ไปที่ table ให้
+            }
+        }
+
+     6. search
+        6.1 search แบบตรงๆใช้แค่คำ
+            GET user/_search?q=<word>  ---มันจะขึ้นมาหรืแสดงแค่ id นั้น
+
+        6.2 search แบบไส่ column ไปด้วย
+            GET user/_search
+            {
+                "query": {
+                    "match": { --- ใช้ term ก็ได้
+                    "name": "toon1"   ---ไส่ตัวเล็กตัวใหญ่เจอหมด
+                    }
+                }
+            }
+
+        6.3 like like แบบของ sql อ่ะ
+            GET user/_search
+            {
+                "query": {
+                    "wildcard": {
+                    "email": {
+                        "value": "*toon*"
+                    }
+                    }
+                }
+            }    
+
+        6.4 แบบมีเงื่อนไข must(AND) should (OR โดยเอาคะแนนสูงสุดขึ้นมา)
+        GET user/_search
+        {
+            "query": {
+                "bool": {
+                "must": [
+                    {
+                        "match": {
+                            "name": "toongg"
+                        }
+                    }
+                    ,{
+                        "wildcard": {
+                            "email": "toon*"
+                        }
+                    }
+                ] //ถ้าจะเพิ่ม OR should ไส่นอกวงเล็บ
+                }
+            }
+        }
+        
+
+        6.5 Regular Ex
+            GET user/_search
+            {
+                "query": {
+                    "regexp": {
+                    "email": ".*t.*"
+                    }
+                }
+            }
+
+        6.4 ใช้แบบ function MAX SUM MIN
+            GET user/_search
+            {
+                "aggs": {
+                    "max_value": {  //<<--- ตั้งชื่อเองได้
+                    "max": {    //<-- สามารถเปลี่ยนตาม function max min sum
+                        "field": "salary"  --คำว่า field ไม่ต้องเปลี่ยน, ผลลัพธ์มันจะแยกออกมาอีกชุด
+                    }
+                    }
+                }
+            }      
+
+    7. ลบบาง column ออก
+        POST user/_update/<ID>
+        {
+            "script": {
+                "source": "ctx._source.remove('address')"
+            }
+        }
+
+    7. ลบข้อมูลทั้ง ID
+        DELETE user/_doc/<document_id>
+
+    9. ลบ index
+        DELETE user
+
+    10 เช็คว่า index ไม่มีแล้ว
+        HEAD address     
+    
+    11. shot key cmd + enter
+
+    12. รันแบบอยู่ใน vscode (ใช้ plugin อ่านค่าผ่านข้อมูลใน localhost storeage  ไปดู inspec > Application > local storage) 
+        ติดตั้ง Extendsions : Elasticsearch for vscode
+        สร้างไฟล์มาไฟล์หนึ่งชื่อ ชื่อ es-api.es ต้องนามสกุล .es แล้วมันจะขึ้นข้างบนมาให้ set ว่าจะเอา localhost:9200 เป็น host ไหม Enter เลือก
+            ถ้าจะเปลี่ยน host กด shift+cmd+p > พิมพ์ค้นหา ES: Elastic: set host ใหม่แล้ว enter
+        ใช้งาน เปิดไฟล์ es-api.es
+            ไส่คำสั่ง GET POST ของ elasitcsearch ได้ปกติ 
+
+    13. แอพอื่นๆที่คล้ายกัน opensearch + opensearch dashboard
+        เกิดปัญหาที่ elasticsearch จดลายเซ้นใหม่ 2012 เข้มงวดในการพัฒนาเกินไป ทำให้ AWS และชุมชนทำการ frok และสร้างตัว opensearch ขึ้นมา
+
+logstash
+
+    1. install logstash ไปเอาคำสั่งจากเว็บ elashtic
+        docker pull docker.elastic.co/logstash/logstash:8.16.1  ---ปัจจุบันใน doc มันเป็น version นี้มันจะเปลี่ยนเรื่อยๆ
+
+    2. run container logstash on docker
+        2.1 สร้าง folder logstash ขึ้นมา
+        2.2 สร้างไฟล์ start.sh , chmod +x ตามด้วยชื่อไฟล์ให้เรียบร้อย
+            ในเนื้อไฟล์
+            docker container run -it --rm \
+            docker.elastic.co/logstash/logstash:8.16.1
+
+    3. โครงสร้าง 
+        
+        rdbms     \                             / csv file
+        logfile   \          pipl-line           / elasticsearch
+        twitter --    input -> filter  -> output - message queue
+        http      /                              \ http
+        stdin     /                             \ email
+
+
+    4. remote เข้าไปใน cointainer docker โดยกดรูปโลก
+        Dev Container
+         logstash  -> กดที่ลูกศรตัวนี้
+
+        มันจะขึ้น LOGSTASH[CONTAINER DOCKER.LEASTICE.CO...]
+          แล้วโชว์ไฟล์ทั้งหมดด้านล่าง 
+          folder ที่สนใจ
+          /usr/share/logstash/
+                            config
+                                logstash.yml
+                                pipelines.yml   //ชี้ไปที่ foler pipeline
+                            data
+                            pipeline
+                                logstash.conf  //เก็บ input output rules
+
+    5. สร้าง folder และไฟล์ให้เหมือนกันในของ dev เครื่องเรา
+        logstash   // folder ที่เก็บงานนี้
+            config
+               logstash.yml
+               pipelines.yml   //ไฟล์นี้มันจะชี้ไปที่เครื่อง path pipeline/logstash.conf ของ container                        
+            data  // ตอนรันมันจะดึงไฟล์มาให้ ส่วน folder อื่นยังเหมือนเดิม 
+            pipeline
+               logstash.conf   
+               
+
+    5. map path file ให้ตรงกันบนเครื่องกับ container ไส่ใน volums ของไฟล์ docker compose (สังเกตุว่ามันจะต่างกับทำแบบ ./start.sh ไม่ต้องไส่ --volume ข้างหน้า และไม่ต้องปิดด้วย \)       
+         การทำ volume คือการจัดเก็บข้อมูลภายนอก container ทำให้ใช้งานยาวนานและคงทน Mounts ก็คือการเชื่อมไป
+
+        script 
+        -v "$(PWD)/data:/usr/share/logstash/data" \
+        -v "$(PWD)/config/logstash.yml:/usr/share/logstash/config/logstash.yml" \
+        -v "$(PWD)/config/pipelines.yml:/usr/share/logstash/config/pipelines.yml" \
+        -v "$(PWD)/pipeline/logstash.conf:/usr/share/logstash/pipeline/logstash.conf" \
+
+        docker
+            volumes:
+            - "${PWD}/data:/usr/share/logstash/data"
+            - "${PWD}/config/logstash.yml:/usr/share/logstash/config/logstash.yml"
+            - "${PWD}/config/pipelines.yml:/usr/share/logstash/config/pipelines.yml"
+            - "${PWD}/pipeline/logstash.conf:/usr/share/logstash/pipeline/logstash.conf"
+
+    6. รัน logstash เพื่อรับคำสั่ง
+            script 
+                ./start.sh
+            docker
+                docker compose up
+
+    7. ถ้าใช้แบบไม่ start แบบทิ้ง command ใช้คำสั่ง (พวกที่รันอยู่บนเครื่องหรือบน docker container)
+        $ logstash -f ตามด้วยชื่อไฟล์ config ซึ่งก็คือ logstash.conf
+
+        docker exec -it logstash /bin/bash
+        logstash -f /usr/share/logstash/pipeline/logstash.conf
+
+    8. doc เพื่อเรียนรู้คำสั่งต่างๆ
+        https://www.elastic.co/docs > platform > logstash หรือ kiabna หรือ elastics เลือกดูได้เลย
+            codec plugin    //--- codec (มาจากคำว่า "coder" และ "decoder" ย่อรวมกัน) คือการแปลงจาก json หรือรูปแบบอื่นมาออกมาเป็น output 
+
+    9. ติดตั้ง extendsions ไม่ต้องพิมพ์คำสั่งเองเหมือนข้างบน
+        extendsion: Logstash Configuration Syntax
+        การใช้งาน สร้างไฟล์ชื่ออะไรก็ได้แต่ต้องตามด้วยคำว่า *logstash.conf
+            ไส่ input ouput standard ไว้ในไฟล์
+
+    10. codec plugin
+        json ถ้าลองไส่รูปแบบ json เขาจะอ่านไม่เป็น มันจะมองพวก {"name:,"toon","age":18} ต่างๆเป็นอักษรแยกไปเลย ใช้ json codec
+        ใน input
+        input{
+            stdin{
+                codec => json{   //----เพิ่มตรงนี้
+
+                }
+            }
+             http {
+                port => 8080  //เปิดการ call data ผ่าน http call 
+            }
+
+            file {
+                path => ["${PWD}/input/input.log"]
+            }
+        }
+
+        output: 
+          "name" => "toon",  // <---ตัดได้ ถ้าเป็นตอนยังไม่ไส่มันจะตัดไม่ออก และจับ fileds, values ไม่ได้
+          "age" => 18, // แปลงเป็นตัวเลขให้ด้วย
+
+    x11. auto reload ไม่ต้อง stop start ใหม่เรื่อยๆ
+
+        ไฟล์ piplines.yml ต้องไส่แบบนี้มันถึงจะเรียกไฟล์ pipline ที่อยู่ในเครื่องเราและบน docker ถูก
+        - pipeline.id: main
+            path.config: "${PWD}/pipeline/logstash.conf"
+
+        
+        ไส่คำสั่งในไฟล์ start.sh
+        --config.reload.automatic=true
+            
+
+        *note* 
+            docker run ใช้สำหรับ terminal แต่เอามาไส่ไฟล์ คำสั่งมักจะเป็น -v ขีดเดียว
+            docker compose จัดการคำสั่งผ่าน yaml file ปรับปรุงจาก docker run ทำให้มีคำสั่งที่ใช้สะดวกกว่า
+            
+            doc ของ docker run เอาไว้ดูพวกคำสั่ง: https://docs.docker.com/reference/cli/docker/container/run/ 
+            docker compose : https://docs.docker.com/reference/cli/docker/compose/ 
+
+    12. call ด้วย http
+        แบบสั้นๆง่ายๆ $ curl localhost:8080 -d "xx"
+        curl localhost:8080 -H "content-type:application/json"  -d '{"name":"toon","age":18}'
+      
+
+    13. input ด้วยไฟล์
+        file {
+            path => ["${PWD}/input/input.log"]  //เวลากรอกค่าในไฟล์ xxx แล้ว enter ถึงจะทำงาน
+        }
+
+        เพิ่ม volume เพื่อให้ docker รู้จัก folder ใหม่นี้
+        --volume="$(PWD)/input/:/usr/share/logstash/input/" \     
+
+        ให้มันอ่านไฟล์ตั้งแต่ต้น 
+        ใน foler data/plugins/inputs/file ในไฟล์มันจะเก็บสิ่งที่เช็คและจดจำว่าไฟล์มีอยู่เท่านี้ถ้าไม่มีการเปลี่ยนแปลงมันจะไม่อ่านใหม่
+            สามารถลบไฟล์นี้ทิ้งได้ ถ้าอยากให้มันอ่านไฟล์นี้ใหม่
+        file {
+            path => ["${PWD}/input/input.log"]  //เวลากรอกค่าในไฟล์ xxx แล้ว enter ถึงจะทำงาน
+            start_position => "beginning"  //ให้มันอ่านไฟล์ใหม่ตั้งแต่เริ่มต้น default มันจะเป็น end แล้วมันจะ process ใหม่
+        }   
+
+    14. wildcard หรือ like ชื่อไฟล์ log 
+    คือเอา log ตาม input-*.log ไฟล์ log จริงคือ input-20241214.log     
+
+        file {
+            path => ["${PWD}/input/input-*.log"]  // ไส่ * ไป คือแม่ง monitor ไฟล์ได้จริง เพิ่มไฟล์ใหม่ก็อ่านให้
+            start_position => "beginning"  
+        }   
+
+    15. output เป็นไฟล์
+        ในไฟล์ logstash.conf
+        output {
+            stdout { }
+
+            file {
+                path => ["${PWD}/output/output.log"]  //ไส่ไปแบบนี้ตรง output เวลาที่เรา enter หรือมี log ใหม่อ่านมา มันจะมาลง output ที่แปลงแล้วในไฟล์นี้
+            }
+        }
+
+        map volume folder output ให้ docker รู้จักด้วย
+        --volume="$(PWD)/output/:/usr/share/logstash/output/" \
+
+        ผลลัพธ์ มันจะสร้างไฟล์ output.log มาให้ตามที่ set ชื่อไว้ในไฟล์ conf
+        ได้แบบนี้
+            {"message":"hey siri gg call","event":{"original":"hey siri gg call"},"host":{"name":"79fd6396bd0b"},"@version":"1","@timestamp":"2024-12-14T13:19:05.862860314Z","log":{"file":{"path":"/usr/share/logstash/input/input-20241214.log"}}}
+
+        ยิ่งผ่าน http 
+            curl localhost:8080 -H "content-type:application/json"  -d '{"name":"toon","age":18}'
+        output ก็เก็บเหมือนกัน
+            {"user_agent":{"original":"curl/8.7.1"},"http":{"request":{"body":{"bytes":"24"},"mime_type":"application/json"},"version":"HTTP/1.1","method":"POST"},"url":{"port":8080,"domain":"localhost","path":"/"},"name":"toon","event":{"original":"{\"name\":\"toon\",\"age\":18}"},"host":{"ip":"172.17.0.1"},"@version":"1","@timestamp":"2024-12-14T13:21:48.154415373Z","age":18}
+
+    16. filter
+
+        input {
+            stdin { }
+        }
+
+        filter {
+            //---ไส่ filter เข้าไประหว่าง input กับ output
+        }
+
+        output {
+            stdout { }
+        }
+
+        ใช้ filter plugin เอกสารนี้ https://www.elastic.co/docs > platform > logstash > filter plugin
+            เลือกใช้ตัว convert มีหลายตัวนะ
+                filter {
+                    mutate {                  //ถ้าไม่รู้ว่ามีคำสั่งอะไรให้ใช้บ้าง กดใช้ตัวช่วย cmd+i 
+                        convert => {     
+                            "age" => "integer"   //คือเลือกให้ filds นี้แปลงเป็น integer
+                        }
+                    }
+                } 
+
+            ลอง call ด้วย ดู http (สังเกตุมีส่ง feids age มาด้วยเป็น string)
+                curl localhost:8080 -H "content-type:application/json"  -d '{"name":"toon","age":"18"}'       
+
+            output แปลงให้ "age" => 18, เห็นมะ
+
+    17. remove fields (ใน mutate)
+         filter {
+            mutate {                 
+                convert => {     
+                    "age" => "integer"   
+                }
+                remove_field => [""]  //เป็น array remove ได้หลาย fields 
+            }
+        } 
+
+        สิ่งที่ filter ออกก็จะหายไปก่อนไปลง output
+
+    18. ไส่ไทป์ให้มันว่ามันมาช่องทางใหน
+        input {
+            stdin { 
+                codec => json
+            }
+
+            http {
+                port => 8080
+                type => "http"   //---ตรงนี้
+            }
+
+            file {
+                path => ["${PWD}/input/input-*.log"]
+                type => "file" //---ตรงนี้
+            }
+        }
+
+        เอาไปแปะใน output
+        output {
+            stdout { }
+
+            file {
+                path => ["${PWD}/output/%{type}-%{+yyyyMMdd}.log"]  //--- เอา type มาใช้เหมือนตัวแปร ภายใต้ %{ตัวแปร}
+            }                                   //แอบเติม formate วันที่ไปด้วย %{+ตามด้วย formate date}
+        }
+
+        จะได้ไฟล์ตามชื่อ type และตามด้วยวันที่มา
+        แบบนี้ /output/http-20241214.log
+
+    19. เพิ่มไฟล์ pipeline 2 pipeline
+        ในไฟล์ pipeline.yml
+            - pipeline.id: basic  //<---ชื่อแยกกัน
+            path.config: "${PWD}/pipeline/basic-logstash.conf"
+
+            - pipeline.id: apache
+            path.config: "${PWD}/pipeline/apache-logstash.conf"
+
+
+        สร้างไฟล์ pipeline เพิ่มใน folder pipeline แยกการทำงานกัน
+            basic-logstash.conf  
+            apache-logstash.conf
+
+        map 3 folder ให้ docker รู้จักชี้มาที่นี้
+                data
+                logstash.yml
+                pipelines.yml
+                pipeline  //<--
+                input     //<--
+                output    //<--
+
+        map port เพิ่มด้วย เพราะรับ 2 port จาก 2 pipeline
+            --publish="8080:8080" \
+            --publish="8081:8081" \   
+
+        เปลี่ยน input แยก ให้ชี้ไปต่างไฟล์กัน
+            path => ["${PWD}/input/basic-*.log"]
+            path => ["${PWD}/input/apache-*.log"]   
+
+    20. ลองรับ formate แบบ apache access log (log ของจริง) มันมองแต่ละคำแยกด้วยเว้นวรรค ถ้ามีเว้นวรรคมองเป็นคำใหม่ที่ต้องจัดการ
+
+        20.1 ก้อป log จริงมา 1 บรรทัดเอามาแปะใน input ของ apache
+
+            เข้าไปดูเอกสาร เว็บ elastic co > platform > logstash > filter plugin > grok (ที่หมายถึงปืนกล็อคนั้นหรอ >,<)
+            
+            link logstash pattern ต่างๆนาให้ทุกคนใช้ : https://github.com/logstash-plugins/logstash-patterns-core/tree/main/patterns/legacy 
+                ลองเข้าไปของ grok pattern
+                    จะมี preset ให้ใช้ เช่น
+                    IP (?:%{IPV6}|%{IPV4})  //<--- ตัด IP ตัด hostname ไม่ต้องเขียน RegEx เองถ้าไม่เป็น
+                    HOSTNAME \b(?:[0-9A-Za-z][0-9A-Za-z-]{0,62})(?:\.(?:[0-9A-Za-z][0-9A-Za-z-]{0,62}))*(\.?|\b)
+                
+                โหลดมาไว้ที่เครื่องก็ได้นะ เก็บไว้ folder resource/เก็บเป็นชื่อไฟล์ grok-pattern
+
+            เอาไปใช้ใน filter ใน pipeline ของ apache
+            filter {
+                grok {
+                    math => {
+                        "message" => "%{IP:ip_address}" //---ทำภายใต้ %{} IP คือ pattern ที่หยิบมาจากด้านบน ip_address คือชื่อ fields ใหม่ที่จะตั้งให้มันหลังตัดแล้ว
+                    }
+                }
+            }  
+
+            output มันจะตัดได้แล้ว
+                "ip_address" => "84.252.108.229",
+
+                สมมุติไส่ไม่ตรง formate เช่น text เป็น Hello มันจะขึ้น _grokparsefailure ไปเขียน if ดักเอาได้
+
+        20.2 เพิ่มไปทีละตัว
+            log มันคือ 
+                184.252.108.229 - bond [20/Sep/2017:13:22:22 +0200] "GET /products/view/123 HTTP/1.1" 200 12798
+            ทำ formate ตัดค่า
+                "%{IP:ip_address} %{USER:identity} %{USER:user_id}"  
+
+        20.3 ลบอันที่ไม่ต้องการออก เรามีความรู้แล้วนี้
+            filter {
+                grok {
+                    match => {
+                        "message" => "%{IP:ip_address} %{USER:user} %{USER:user_id}"
+                    }
+                }
+                
+                mutate { //---เอาไว้ทีหลัง grok ไปลบออกทีหลัง
+                    remove_field => ["message","event","host","log","@version","event"] //<<--ตรงนี้ ไส่ไรก็ไส่ไป
+                }
+            }          
+        
+        20.4 กรองแบบที่มันมี [] อ่ะ แบบพิเศษอ่ะ
+                                มีวงเล็บ     date ที่อยากได้        
+                                v         v                            
+            184.252.108.229 - bond [20/Sep/2017:13:22:22 +0200]
+
+            formate ที่ใช้ ["\[%{HTTPDATE}:timestamp\]"]  //ก็คือใช้ \
+
+
+        20.5 แบบมี "" ใน text
+                                                    เนี้ยมันอยู่ใน "" อีกที
+                                                        v 
+            [20/Sep/2017:13:22:22 +0200] "GET /products/view/123 HTTP/1.1"
+
+            formate ["\"" หรือเอา '' ครอบไปเลย
+                หรืออีกแบบ ['\"'] //---เปลี่ยนข้างนอกที่ครอบเป็น single qute แทน
+
+            จะได้ formate ['"%{WORD:http_method}']  //text ธรรมดาคือ word มันมองแต่ละคำแยกกันด้วยเว้นวรรค
+
+        ปล. ต้องจัดการไส่ formate ให้เหมือนกับ text จริงนะทุกตำแหน่งนะ ไม่นับรวมเว้นวรรคนอกนั้นคิดหมด
+
+        20.6 ทั้งหมด
+            log (มันขึ้นคำด้วยเว้นวรรคอยู่แล้วแบ่งแบบนี้ไปก่อนเพื่อโชว์ได้)
+            184.252.108.229     -                bond        [20/Sep/2017:13:22:22 +0200] "GET               /products/view/123        HTTP/         1.1"                  200                   12798 "http://codebangkok.com/products" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36"
+                  ^             ^                 ^                   ^                     ^                     ^                     ^ ไม่เอา       ^                     ^                      ^
+            '%{IP:ip_address} %{USER:identity} %{USER:user_id} \[%{HTTPDATE:timestamp}\] "%{WORD:http_method} %{URIPATHPARAM:uri_path} HTTP/%{NUMBER:http_version:float}" %{INT:http_status:int} %{INT:bytes:int}' 
+                                                                                                                                                                ^    ^                    ^           ^
+                                                                                                                                                                แปลง  มี "             แปลง       เป็นตัวเลขแปลงไป
+
+        20.7 แต่ ไม่ต้องทำเองทั้งหมด                                                                                                                                                       
+            ใน legacy > httpd (มันคือ formate ของ log apache ทั้งหมด เขาทำรูปแบบไว้หมดแล้ว แค่ไปหยิบชื่อตัวแปรมาใช้ได้เลย เขาจัดเขา formate ไว้ให้แล้ว แหมทีม log ทำไว้ดีจริง)
+
+            ใน httpd                    ตั้งชื่อให้เรียบร้อย
+                                          v
+            HTTPD_COMMONLOG %{IPORHOST:clientip} %{HTTPDUSER:ident} %{HTTPDUSER:auth} \[%{HTTPDATE:timestamp}\] "(?:%{WORD:verb} %{NOTSPACE:request}(?: HTTP/%{NUMBER:httpversion})?|%{DATA:rawrequest})" (?:-|%{NUMBER:response}) (?:-|%{NUMBER:bytes})
+            
+            ใช้
+            "message" => "%{HTTPD_COMMONLOG}"
+
+            output 
+                ได้ ค่าออกมาสวยตั้งชื่อตัวแปรให้ด้วยเรียบร้อย
+
+        20.8 ใช้กับตัวอื่น เช่น aws หรือ tool อื่นมีหมด
+             ใน legacy 
+                    aws
+                    maven
+                    redis 
+                    postgres
+                    java
+                    mongodb   
+            เอามาใช้ได้เลยไม่ต้องเขียนเอง แต่ถ้านอกเหนือจากนั้นเราก็เรียนกันมาแล้ว 
+        
+        20.9 สร้าง pattern เอง
+            grok {
+                pattern_definitions => { //ใช้ keyword นี้
+                    "MYNUMBER" => "(?:[+-]?(?:[0-9]+))" //ก้อปมา
+                }
+
+                match =>{
+                    "message" => "%{MYNUMBER:num}" //เอาไปใช้ใน formate
+                }
+            }        
+
+        20.10 สร้าง pattern เองแบบเหมือนของเขา
+            สร้าง folder pattern ขึ้นมา    
+            สร้างไฟล์ mypattern
+                mynumber2 (?:[+-]?(?:[0-9]+))  //สร้างชื่อ pattern ของตัวเอง
+
+            เอาไปใช้
+                pattern_dir => "${PWD}/pattern"
+
+                match =>{
+                    "message" => "%{mynumber2:num2}" //เรียก mynumber2 ที่อยู่ใน folder ของเราเอง
+                }  
+
+            อย่าลืม map folder ใหม่ ชื่อ pattern ให้มันด้วย      
+                --volume="$(PWD)/pattern/:/usr/share/logstash/pattern/" \
+
+             output จะได้ num2 ที่ตัดค่าได้ โดยใช้ pattern ของตัวเองที่อยู่ในรูปแบบ folder pattern   
+
+        20.11 แปลงหลังจากใช้ preset ของเขาแล้ว แต่ยังไม่ถูกใจ ติด "" มาบ้าง ไม่แปลง int ให้มาบ้าง ทำให้ mutate เหมือนกับ remove นั้นแหละ
+            ใช้ convert 
+
+            mutate {
+                convert => {
+                    "@version" => "integer"  //นี้แปลงมันหลังจาก filter มาแล้วไม่พอใจ ตอนที่ใช้ของเขา
+                }
+            } 
+
+            elastic co > logstash > filter plugin > mutate (มิวเทด) มีอะไรให้ใช้บ้าง เช่น convert, remove_field
+                ใช้ gsub (เหมือน replace)
+
+            mutate {
+                gsub => [
+                    "[url][original]","123","xxx"  //อ้าง url.original แทนค่า 123 ด้วย xxx ผลลัพธ์จะแทนที่ค่าได้เป็น output ออกไป
+                ]      
+            } 
+
+        20.12 cal ยาวๆ ผ่าน http ก็ได้
+            curl localhost:8081 -d '184.252.108.229 - bond [20/Sep/2017:13:22:22 +0200] "GET /products/view/123 HTTP/1.1" 200 12798 "http://codebangkok.com/products" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36"'
+
+        20.13 ตัด date จากไฟล์มาไส่เป็นชื่อ log
+            ใช้ elastic co > logstash > filter plugin > date filter plugin    
+            หลักการของมันคือ map timestamp จากในไฟล์ไปที่ timestamp และ date ในไฟล์ก็ใช้ date จาก yyyyMMdd อีกที มันก็คือ map date จากไฟล์ไปทับ date ของ system ที่แสดงบนตัวแปร @timestamp แล้วค่า yyyyMMdd ที่จะเอาไปแปะใน log มันก็ใช้จากตัวแปรตัวนี้อีกที เขาเลยเรียกว่า map date
+
+        filter {           ชื่อ field   map ให้ตรง "timestamp" => "20/Sep/2017:13:22:22 +0200",
+            date {             v      v 
+                match => ["timestamp,"dd/MMM/yyyy:HH:mm:ss Z"]
+                
+            }
+        }
+
+        output @timestamp จะได้เป็นปี 2017 "@timestamp" => 2017-09-20T11:22:22.000Z เหมือนกับในตัวแปร timstamp ในไฟล์
+        ไฟล์ output ที่ path จะได้ apache-file-20170920
+
+        20.14 ใช้ if condition
+            compare ==, >, >=, ,< , <=, !=
+            in, not in, 
+            and, or
+
+            ได้รับ api ที่มี endpoint error มา:  curl localhost:8081/error -d "invalid request"
+
+            เช็คใน filter
+
+            filter {
+                if [url][path] == "/error" {
+                    mutate {
+                        replcae => {
+                            "type" => "error"  //ทับค่า type เป็น error เวลาเอาไปแปะในชื่อไฟล์จะได้เป็นชื่อ error.log
+                        }
+                    }
+                }
+            }
+
+            ผลลัพธ์ มันจะเข้าทำงานใน if และ ได้ชื่อไฟล์ได้เป็น apache-error-20241215
+
+        20.15 เช็ค _grokparsefailure ถ้ามีให้ drop (หยุดไปเลย)
+        filter {
+
+            grok {
+
+            }
+
+            //วางไว้หลัง grok เสมอให้มัน map ค่าออกมาก่อน ไม่งั้นมันจะไม่ได้ค่า _grokparsefailure มา เพราะ _grokparsefailure เกิดขึ้นหลังจาก grok พยายามจับคู่ pattern แล้วล้มเหลว.
+            if "_grokparsefailure" in [tags] {  //ถ้าเจอคำนี้ใน feilds นี้
+                drop { }           //ไม่ต้อง process
+            }
+
+        }
+
+        20.16 Useragent filter plugin
+            elastic co > logstash > filter plugin > Useragent filter plugin
+            ใช้ใน filter หลัง grok
+
+            useragent {
+                source => "agent"  //เอาจาก fields นี้
+                target => "ua"  //มันจะแตกออกเยอะ แต่เราจะเก็บไว้ใน tag ชื่อนี้
+            }
+
+    21. ยิงเข้า elasticsearch 
+        
+        21.1 set ตรง output
+            elasticsearch {
+                hosts => "http://localhost:9200"
+                index => "toon-%{type}-%{+yyyyMMdd}"
+            }   
+
+        21.2 ถ้าอยู่คนละ net work ต้องสร้าง network ขึ้นมาก่อน
+            docker network create logstash-network   //--- อันนี้ delete เผื่ออยากใช้ $ docker network rm logstash-network
+        
+            ฝั่ง docker run โดยไฟล์ .sh
+               //เพิ่ม network ให้แอพ ในคำสั่ง docker run
+                --network logstash-network \
+
+            docker compose
+            //ไส่ในแอพแต่ละตัว
+                networks:
+                - logstash-network 
+
+            //ต้องอ้างให้ docker compose รู้จักด้วย ว่าเป็น network จากภายนอกไม่ใช่ network ที่เป็น internal ใน docker compose เอง
+            networks:
+                logstash-network:
+                    external: true
+
+            ทดสอบ call จาก logstash ไปยัง elasticsearch ถ้ามัน call ไม่ได้
+            เข้าไปใน container logstash ก่อน
+                docker exec -it <logstash_container_name> /bin/bash
+        
+            ลองใช้ get โดย curl ดู
+                curl -X GET "http://elasticsearch:9200/_indices?h=index"   
+
+        21.3 config ให้มันเร็ซ
+
+            elasticsearch:
+                container_name: elasticserach
+                image: docker.elastic.co/elasticsearch/elasticsearch:sha256-fff57a996ea17bad3163108f6f3221c7f5a43cac20bffea5082c49eb4d7950e5
+                environment:
+                - discovery.type=single-node
+                - xpack.security.enabled=false
+                - node.store.allow_mmap=false 
+
+            # kibana:
+            #   container_name: kibana
+            #   image: docker.elastic.co/kibana/kibana:sha256-ffbd605e4891c98d502bd78f474bbe424503cf81496a1bb2a71b58bc8f7742c1
+            #   environment:
+            #     - elasticsearch.hosts:=http://localhost:9200
+            #     - MONITORING_UI_ENABLED=false      
+            #     - XPACK_REPORTING_ENABLED=false    
+            #     - XPACK_SECURITY_ENABLED=false     
+            #     - XPACK_GRAPH_ENABLED=false       
+
+            logstash (docker run)
+            --cpus="0.5" \
+            --memory="512m" \
+            -e "LS_JAVA_OPTS=-Xms256m -Xmx256m" \
+            -e "xpack.monitoring.enabled=false" \
+            -e "pipeline.workers=1" \
+            -e "pipeline.batch.size=125" \     
+
+         21.4 ทำให้มันอยู่ใน docker compose เดียวกัน
+              logstash:
+                container_name: logstash
+                image: docker.elastic.co/logstash/logstash:8.16.1
+                environment:
+                - LS_JAVA_OPTS=-Xms256m -Xmx256m
+                - xpack.monitoring.enabled=false
+                - pipeline.workers=1
+                - pipeline.batch.size=125
+                ports:
+                - 8080:8080
+                volumes:
+                - ./logstash/data:/usr/share/logstash/data
+                - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml
+                - ./logstash/config/pipelines.yml:/usr/share/logstash/config/pipelines.yml
+                - ./logstash/pipeline/:/usr/share/logstash/pipeline/
+                - ./logstash/input/:/usr/share/logstash/input/
+                - ./logstash/output/:/usr/share/logstash/output/
+                - ./logstash/pattern/:/usr/share/logstash/pattern/
+            
+                networks:
+                - logstash-network    
+   
+            networks:
+            logstash-network:  
+
+
+            เช็ค network
+                docker network ls
+            ลบ ถ้าอยากลบ
+                docker network rm <network_name>
+
+            คำสั่ง
+                localhost:9200/_cat/indices?v&h=index
+            คำสั่งยิงผ่าน api (post man)
+                POST localhost:8081 
+                type text : 184.252.108.229 - bond [20/Sep/2017:13:22:22 +0200] "GET /products/view/123 HTTP/1.1" 200 12798 "http://codebangkok.com/products" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36"
+
+
+mount vs volume
+
++----------------------------------+
+|           Kubernetes Cluster     |
+|                                  |
+|  +----------------------------+  |
+|  |      Pod (Container)        |  |
+|  |                            |  |
+|  |  +----------------------+  |  |
+|  |  |     /usr/share/logstash  |  |  |
+|  |  |  /input                |  |  |
+|  |  |  /input/apache-20241215.log |  |  |   <--- Mount (file inside container)
+|  |  +----------------------+  |  |
+|  |                            |  |
+|  +----------------------------+  |
++----------------------------------+
+   |
+   | (Volume)
+   |
++-----------------------------------+
+|   Persistent Volume (PV) or ConfigMap|
+|   (external storage)              |
+|                                   |
+|   +--------------------------+    |
+|   |     /mnt/data/logstash    |    |
+|   |     /input/apache-20241215.log |   | <--- Volume (external storage)
+|   +--------------------------+    |
++-----------------------------------+
+
+
+Volume: (ฝั่งที่เก็บพื้นที่ให้ container บน k8s ใช้ หรือชี้มา)
+    Volume ใน Kubernetes คือพื้นที่เก็บข้อมูลที่ Kubernetes จัดเตรียมให้สำหรับ container ใน pod
+    มันเหมือนกับ ไดเรกทอรีหรือพื้นที่จัดเก็บข้อมูล ที่ Kubernetes มอบให้ container สามารถเข้าถึงได้
+    Volume สามารถมาจากหลายแหล่ง เช่น local storage, NFS, AWS EBS, หรือ GCP Persistent Disk
+    ความแตกต่างของ Volume คือมันสามารถเก็บข้อมูลได้แม้ว่า pod จะหยุดหรือ restart (ถ้าเป็น PV/PVC)
+Mount: (มันคือการทำให้ container รู้จักพื้นที่เก็บนี้)
+    Mount คือการเชื่อมโยงหรือการเชื่อมต่อ volume ที่เราสร้างไว้ให้เข้าไปใน container ที่กำลังรันอยู่
+    การ mount จะเหมือนกับการที่เราตั้งโฟลเดอร์ในเครื่องคอมพิวเตอร์ให้สามารถเข้าถึงข้อมูลจาก external drive หรือพื้นที่เก็บข้อมูลที่อยู่นอกเครื่อง
+
+        mount (ฝั่ง container ไฟล์จริง ให้ชี้ไปที่)
+          volumeMounts:
+            - name: logstash-config-reload
+              mountPath: /usr/share/logstash/config/logstash.yml
+              subPath: logstash.yml  <<--- จะต้องตรงกับ Key ใน configmap เสมอ
+
+
+        map ให้เชื่อมกับ volume หรือสร้าง folder ใหม่ ถ้าไม่ได้ map value ก็ยังจำเป็นต้องใช้คำสั่งนี้ เพื่อให้ container มันทำงานและได้รู้จักว่าต้องทำอะไรกับ path ใน volumeMounts
+        volumes:
+            - name: logstash-config-reload
+            configMap:
+                name: logstash-config
+
+
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+        name: logstash-config
+        namespace: elk
+        data:
+        logstash.yml: |
+            config.reload.automatic: true
+            config.reload.interval: 3s 
+
+
+ถ้าเป็นการ map folder ไม่ต้องชี้ไปที่ configMap เพราะมันไม่ได้ชี้ไปที่ใหน มันเป็นการบอกให้มันสร้าง folder ใน container ใหม่เฉยๆ ทำเฉพาะใน mount ไม่ได้ออกไป volume
+        
+        mount
+        volumeMounts:
+            - name: logstash-output
+              mountPath: /usr/share/logstash/output/
+
+        map
+        - name: logstash-output  //ไม่ต้อง map key ไปยัง volume
+          hostPath:
+            path: /path/on/host/logstash/output
+            type: Directory

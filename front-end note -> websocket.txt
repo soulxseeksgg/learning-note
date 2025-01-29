@@ -1,0 +1,450 @@
+Web socket (message broker แบบ sigle node)
+1.เพิ่ม dependency
+  ไปที่ไฟล์ POM.xml >> ไส่ dependency project backend
+   <dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-websocket</artifactId>
+		</dependency>
+
+2.เพิ่ม WebSocketConfig
+  ภายใต้ package config > ไฟล์ WebSocketConfig.java
+
+  @Configuration
+  @EnableWebSocketMessageBroker <<--บอกว่าจะสั่งข้อความจากหน้าบ้านมาหลังบ้านโดยใช้ STOM protocal
+  public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+
+    @Override
+    public void configureMessageBroker(MessageBrokerRegistry registry) { <-- set prefix (prefix ก็คือ topic นั้นแหละ)
+        registry.enableSimpleBroker("/topic");   /// <<<< เหมือนการ map port 3679:3679 บอกว่าให้ใช้ port นี้นะในการเชื่อมต่ออันนี้ก็เหมือนกัน
+    }
+
+    @Override
+    public void registerStompEndpoints(StompEndpointRegistry registry) {
+        registry.addEndpoint("/socket")     //<<<< เอาไว้ให้หน้าบ้านมาใช้ต่อ เช่น = new WebSocket('ws://localhost:8080/socket');                 
+                .setAllowedOriginPatterns("http://localhost*") << --- allow อนุญาติให้หน้าบ้านเข้า endpoint นี้ได้ (ซึ่งมันเป็นของฝั่ง server)
+                .withSockJS();  //เปิดใช้งาน sockjs ถ้า websocket ทำงานไม่ได้
+    }
+  }
+ 
+ *note* STOMP (Simple Text Oriented Messaging Protocol) เป็นโปรโตคอลที่ใช้สำหรับการส่งข้อความในรูปแบบข้อความ (text-based protocol) ที่ถูกออกแบบมาให้ทำงานกับระบบส่งข้อความแบบ message brokers เช่น ActiveMQ, RabbitMQ, หรือ Spring WebSocket ที่คุณใช้อยู่ในตัวอย่างของคุณ
+
+ึ3. เพิ่มส่วนของ Security         
+   private final String[] PUBLIC = {
+            "/actuator/**"
+            ,"/user/register"
+            ,"/user/login"
+            ,"updateUserName"
+            ,"/socket/**" <---- <<-- อนุญาติให้เข้าถึง path socket ที่หน้าบ้านจะต่อมา
+            ,"/chat/message" <--- เพิ่มสิทธิ์ให้เข้า API chat ชั่วคราว โดยไม่ต้องมี token
+    };
+
+
+ 3.1. เพิ่ม @Bean config // corsFilter จัดการการ เข้าถึงสำหรับคำขอที่มาจากต่างโดเมน (Cross-Origin Requests) ว่าโดเมนไหนบ้างที่สามารถเชื่อมต่อและส่งคำขอมาที่ backend ได้ (เช่น frontend ที่อยู่คนละโดเมน)
+                       //ส่วน security จัดการเรื่องการ เข้าถึง API ตรงๆ ของ backend โดยควบคุมว่าใครมีสิทธิ์เข้าถึง endpoint อะไรในระบบ 
+    public CorsFilter corsFilter(){
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource(); <<--- เลือกเอาตัวปกติ เรายังไม่ทำแบบ reactive
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowCredentials(true); <--- set Credentials (การรับรองเป็น true)
+        config.addAllowedOrigin("http://localhost:4200"); <--- allow url ของหน้าบ้าน Angular port 4200
+        config.addAllowedHeader("*"); <--- รับ Header ทุกอัน อย่างเช่น Authorization
+        config.addAllowedMethod("OPTIONS"); 
+        config.addAllowedMethod("POST");
+        config.addAllowedMethod("GET");   << --- ให้เข้า Option อะไรบ้าง
+        config.addAllowedMethod("PUT");
+        config.addAllowedMethod("DELETE");
+        source.registerCorsConfiguration("/**",config);  <<-- Filter ทุกที่ ด้วย config นี้
+        return new CorsFilter(source); <<--- สุดท้าย return filter กลับไป
+    }
+   
+4. ทำส่วน API 
+
+    ---- ส่วน API ----
+    @PostMapping("/message")
+    public ResponseEntity<Void> chat(@RequestBody MChatMessageRequest request){
+        chatBusiness.getMessage(request);
+        return ResponseEntity.ok().build();
+    }
+
+    --- ส่วน Business ----
+@Service
+public class ChatBusiness {
+    
+       private final SimpMessagingTemplate template; 
+       public ChatBusiness(SimpMessagingTemplate template) { <<--- ใช้ SimpMessagingTemplate รับ 
+          this.template = template;
+       }
+
+        public void getMessage(MChatMessageRequest request){ //สามารถ vilidate ข้อความในนี้ได้เลย ว่าเป็นคำหยาบไหมหรืออื่นๆ
+            String destination = "/topic/chat"; <<--- destination ที่ใช้คุยกันกับหน้าบ้าน ต้องตรงกันกับ
+            ChatMessage payload = new ChatMessage();
+            payload.setFrom("userTest");
+            payload.setMessage(request.getMessage());
+            template.convertAndSend(destination,payload);
+        }
+}
+   ----- ส่วนของ model ----
+   ภายใต้ packaeg model
+@Data
+public class ChatMessage {
+    private String from;
+    private String message;
+    private Date created;
+
+    public ChatMessage(){
+        created = new Date();
+    }
+
+}
+
+5. start program
+  เทสการทำงานของ websocket ว่าต่อได้ไหม ทำงานได้ไหม
+  http://localhost:8080/socket >> จะขึ้น Welcome to SockJS!
+
+
+  -------start front-end------------------------------------------------------------
+  ----------------------------------------------------------------------------------
+
+  1.โหลดและติดตั้ง NodeJs เข้าเว็บ NodeJs เลือกที่เป็น LTS ลงเป็น homebrew ก็ได้ (ช้าสัส) brew install node@22 หรือลงแบบติดตั้งเองในเครื่องก็ได้ //ลง nodejs เพื่อเอาไว้ติดตั้ง angular อีกที โดยติดตั้งผ่าน npm (Node Package Manager)
+  2. ติดตั้ง Angular cli
+    เข้าเว็บ Angular > get starter > setup
+    ลง Angular ใช้ command $ npm install -g @angular/cli   <<--- -g แปลว่าติดตั้งไปที่เครื่องของเราเลย ไม่ใช่ folder ใดๆ
+    //New minor version of npm available! 10.2.4 -> 10.8.3
+  
+  3. สร้าง project ใหม่ cd ไปที่ workspace
+      ใช้คำสั่ง $ ng new frontend --no-standalone  //เมื่อใช้ --no-standalone จะต้องใช้ , ng คือ angular นะต่อย่ออะไรของมึง, ส่วน npm มันเกี่ยวกับ package
+         - เลือก style เป็น SCSS
+         - ต้องการ server-side ไหม ใช้ต้องการ yes //มันคือ option process ให้ render html ที่ server user จะเห็นเว็บเร็วขึ้นเพราะ render รอไว้แล้ว
+
+  4. ใช้ VSCode เขียนโค๊ดหน้าบ้าน    
+      4.1 ติดตั้ง plugin:  เมนู Code > Preferace > Extension> ค้นหา Angular Language Service //ช่วยเติมโค๊ด, แจ้งเตือน error .html และ .ts ทันที โดยที่ยังไม่ได้รัน, เมื่อวางเมาส์บนส่วนประกอบหรือโค้ดที่เกี่ยวข้องกับ Angular จะมีการแสดงข้อมูลช่วยเหลือ    
+      4.2 เลือก Open Folder โปรเจคเราขึ้นมา
+      4.3 ลองเช็คว่ารันได้ไหม โปรเจคแรก ไปที่ VSCode > Terminal > new Terminal
+      4.4 ใช้คำสั่ง $ ng serve --open  << -- open คือถ้ารันเสร็จแล้ว ช่วยเปิด browser ให้ด้วย
+          Hello, frontend
+          Congratulations! Your app is running. 🎉  //อย่างโหด
+      4.5 ปิด Server ไว้ก่อน ใช้ control + c  
+
+  5. สร้าง component
+     ใช้คำสั่ง ng generate component components/chat <<-- สร้าง component ภายใต้ folder components และ chat   
+     ไฟล์จะอยู่ใน project 
+               .angular //เค้าบอกอย่าไปยุ่งเลยเป็นของ angularCli เค้า
+               .vscode //อันนี้เป็น config ของ vscode ที่ config พวก font และรูปแบบต่างๆ ทำให้มาเป็นไฟล์เผื่อผู้ใช้อยากแก้ผ่านไฟล์ง่ายๆ
+               node_modules //เก็บพวก library (โปรแกรม) ของ angular เองและ dependency ในการพัฒนาเว็บ ล้วนๆคืออยู่ในนี้, ถ้าคุณลบโฟลเดอร์ node_modules ไปดื้อๆ มันจะไม่กลับมาเองนะครับ คุณต้องรันคำสั่ง npm install
+                 > src 
+                > app 
+                  > components/chat
+                     chat.component.html << --- มี 4 ไฟล์
+                     chat.component.scss
+                     chat.component.spec.ts  << --- เอาไว้เทส ใช้คำสั่ง ng test
+                     chat.component.ts
+                app.component.html  <<--- file Ui หน้าแรก ต่างๆ
+                app.component.scss
+                app.component.ts
+                index.html
+                app.module.ts  <<< เหมือนของ spring Application เป็นไฟล์ตั้งต้น
+                package.json <<-- ที่เก็บ library ไส่ version แบบ ^ เป็น version ที่ใหม่เสมอ
+                package-lock.json <<--- มันเลยต้องมีไฟล์นี้เก็บ version ที่แน่นอน (หาเห่าไส่หัวแท้ๆ เพราะความอยากยืดหยุ่น) แล้วเอาไปโหลดไว้เก็บใน folder node_modules
+
+  6. install library ที่ต้องลง 3 ตัวลงโปรเจค sockjs, stompjs, net
+      1.sockjs
+      npm install sockjs-client --save-dev   <<---- มันจะไปขึ้นในไฟล์ package.json อันนี้ "sockjs-client": "^1.6.1",          
+      
+      2.@typs/sockjs
+      npm install @types/sockjs-client --save-dev << --- --save แพ็กเกจจะปรากฎใน dependencies ในไฟล์ package.json
+      
+      3.stompjs                                                    --save-dev แพ็กเกจจะปรากฎใน devDependencies ในไฟล์ package.json
+      npm install stompjs --save-dev
+
+      4. type ของ stompjs
+      npm install @types/stompjs --save-dev   <<--- สามารถใช้คำสั่งเดียวรวมกันได้เลย npm install stompjs @types/stompjs --save-dev
+
+      5. package สุดท้ายที่ต้องใช้เป็น net
+      npm install net
+
+      6. ตรวจสอบว่าลงได้ไหม ไปดูที่ไฟล์ package.json ค้นหามันจะมีอย่างละ 2 ที่ เช่นคำค้น sockjs, stompjs เอาไปค้นหาดู เพราะว่ามันมีตัวปกติกับ @Type ด้วยเลยมีสอง
+
+  7. ลองรัน server ขึ้นมาใหม่ ลองเช็คอีกทีหลังติดตั้ง plugin
+     ng serve --open   <<<--- รันได้ แสดงว่า plugin ผ่าน
+
+  8.หน้าแรกอยู่ที่ไฟล์ app.component.html ,app.component.ts
+
+      import { Component } from '@angular/core';
+      import { CommonModule } from '@angular/common';
+      import { RouterOutlet } from '@angular/router';
+
+      @Component({
+        selector: 'app-root',                <<----ถ้าจะเรียกใช้ เรียกจาก tag นี้
+        standalone: true,
+        imports: [CommonModule, RouterOutlet],
+        templateUrl: './app.component.html',  <<--- Ui ของมันอยู่ที่ไฟล์ใหน
+        styleUrl: './app.component.scss'      <<--- styleSheet อยู่ไฟล์นี้
+      })
+      export class AppComponent {
+        title = 'frontend';
+      }
+
+  9. clear html ของหน้าแรก ให้เหลือแค่ tag 
+     <router-outlet></router-outlet>     
+
+  10. เรียกใช้หน้า component chat (ต่าง component) ไปใช้ในหน้าของ html หลัก
+      ไปที่ไฟล์ chat.component.ts
+         selector: 'app-chat' <<--- ก้อปปี้ tag ของ compoenent มา
+
+      เอาไปวางที่ไฟล์ app.compoenent.html วางในรูปแบบ tag เพื่อให้มัน call กันได้
+      <app-chat></app-chat>     << แปะแบบนี้ ลองรันดู มันจะขึ้น chat works! ซึ่งมันเป็นข้อความในหน้า html ของ chat 
+
+  11. ทำ reactive form 
+      เอาไว้ช่วยควบคุมหน้า UI กับหน้า TypeScript  
+      เช่นใช้ [FormControl]="name" ในหน้า Ui พอในหน้า .ts เค้าสามารถเรียก this.name.setValue("gg"); ได้เลย
+  
+    11.1 ติดตั้งหรือ import reactiveForms มาก่อน อาจจะ search google ของเว็บ reactive "reactive form angular" มันจะมีบอกว่าต้อง import อะไรแปะตรง import ตรงใหน
+
+     ไปที่ไฟล์ app.module.ts ซึ่งเป็นไฟล์หลักที่รวม import ของ feature เสริม อย่างเช่น reactive นี้แหละ
+      
+      ไฟล์ app.module.ts
+      #1 สิ่งแรกที่ต้องทำคือแปะ import FormControl กับ ReactiveFormsModule ไม่งั้นใช้ class ไม่ได้ในไฟล์ html ข้อ 11.3
+      import { FormControl, ReactiveFormsModule } from '@angular/forms'; <<<--- เพิ่ม 1
+
+      #2 อันดับสองเพิ่ม ReactiveFormsModule ตรง importes
+      imports: [
+        BrowserModule,
+        AppRoutingModule,
+        ReactiveFormsModule <<--- เพิ่ม 2 ถ้าจะใช้ ReactiveFormsModule
+      ],
+
+    #ส่วนไฟล์ chat.component แล้ว
+    11.2 ใช้ formGroup ในไฟล์ chat.component.ts
+
+      //ต้อง import FormGroup กับ Validators ก่อนด้วย ไม่งั้นใช้ไม่ได้
+      import { FormGroup, Validators } from '@angular/forms'; 
+
+      export class ChatComponent {
+        
+        chatFormGroup: FormGroup = new FormGroup({   <---- ประกาศ
+            message: new FormControl('',Validators.required)
+          });
+
+        onSubmit(){
+          let message = this.chatFormGroup.controls.message.value; <<--- get message จากตัวแปร
+
+          alert(message)
+        }
+
+      }
+
+    11.3 ไฟล์ chat.component.html
+      <form [formGroup]="chatFormGroup" (ngSubmit)="onSubmit()">   <--- ไส่ชื่อ formgroup ที่ตั้ง
+        <input type="text" formControlName="message">   <--- ไส่ formControlName เพื่อเอาไปเรียกใช้
+        <input type="submit" value="send" [disabled]="chatFormGroup.invalid">  ถ้า FormGroup เป็นค่าว่างให้ disable ปุ่ม
+      </form>
+        
+    *note* error ไม่เจอตัวแปร message ใน formControl
+      "noPropertyAccessFromIndexSignature": false, <<---เปลี่ยนเป็น false ในไฟล์ tsconfig.json
+
+
+--------------
+ connect WebSocket
+ ในไฟล์ ts ของ componentChat 
+
+ #import ก่อน
+ import SockJS from 'sockjs-client'; 
+ import * as Stomp from 'stompjs';
+
+ ใน export class ChatComponent { 
+
+  private stompClient: any; <<--- 1 ประกาศตัวแปรไว้ก่อน
+  private CHANNEL ='/topic/chat'; <<--- 5 
+  private ENDPOINT ='http://localhost:8080/socket';
+  isConnected: boolean = false;  
+
+  ngOnInit():void {
+    this.connectWebSocket();  <<--- 6 Oninit เรียก connectWebsocket
+  }  
+
+  private connectWebSocket(){ <<---2 สร้าง function connect
+    let ws = new SockJS(this.ENDPOINT);
+    this.stompClient = Stomp.over(ws); <<---- set endpoint
+  
+    let that = this
+
+    this.stompClient.connect({},function(){ <<--3 connect ไปที่ parametor ว่างเปล่า, ถ้า connecton ได้
+      that.isConnected = true; <<-- ปรับ connection เป็น true
+      that.subscribeToGlobalChat(); <<-- 4 ถ้า connect เสร็จช่วย subscribe
+    }); 
+  }  
+
+  private subscribeToGlobalChat(){
+     this.stompClient.subscribe(this.CHANNEL, (message: any) =>{  <<---5 subscirbe ไปที่ channal chat ที่ผูกกับหลังบ้าน, ถ้ามี message อะไรส่งกลับมา
+      console.log('messagex:'+message); <<-- ให้โชว์ message ให้ดูหน่อย
+    }); 
+  }
+
+
+  ในหน้า html
+  <div>
+    connected: {{isConnected}} <<--- เรียกใช้ตัวแปรจาก Typescript
+  </div>
+
+
+  *note* ดู error รันแล้ว error
+  คลิ๊กขวา > inspect > console จะเจอ error
+  ReferenceError: global is not defined
+  วิธีแก้ ไปที่หน้า index.html
+
+  ไส่ตรง body
+  <script>
+    if(global === undefined){
+      var global = window;
+    }
+  </script>
+
+ -----
+ http client module  เอาไว้ call หลังบ้าน
+
+ ----- file app.modules.ts ---
+ 1. import http client module ในไฟล์ app.module.ts
+    import { HttpClientModule } from '@angular/common/http';
+
+ 2. import HttpClientModule ในไฟล์ app.module.ts
+    imports: [
+      BrowserModule,  
+      HttpClientModule, <<--- import HttpClientModule (หลัง BrowserModule)
+      AppRoutingModule,
+      ReactiveFormsModule
+  ],   
+
+ ----- ไฟล์ chat.service.ts -----
+ 3. สร้าง service ใหม่
+    ใช้คำสั่ง $ ng generate service services/chat  <<--- สร้างให้ 2 ไฟล์
+    src
+     > app
+      > components
+      > services  <--- (new service)
+        chat.service.spec.ts  <<-- จะได้ไฟล์ 1
+        chat.service.ts       <--- ได้ไฟล์ 2
+
+ 4. ทำ injecttion constructor ของ http client เพื่อที่จะใช้เรียก function ที่คอลหาหลังบ้าน 
+    
+    import { HttpClient } from '@angular/common/http'; <<--- มี import
+
+    export class ChatService {
+      constructor(private http: HttpClient) { } <<-- ทำ injection constructor เพื่อใช้งาน function เพื่อที่จะ call API ไปหน้าบ้าน ที่มี URL เป็น localhost:8080/chat/message
+    }
+
+ 5. สร้าง function ใหม่ เพื่อทำการ conect ไป API หลังบ้าน
+    postMessage(message: string){
+      let url = 'http://localhost:8080/chat/message';
+      let body = {
+        message: message
+    }
+    this.http.post(url,body);
+  }   
+
+
+  ------ file chat.component.ts -----
+  6. เอา function postmessage ไปใช้ในหน้า chat component
+
+    6.1 เพิ่ม constructor ในไฟล์ chat.component.ts
+    constructor(
+      private chatService: ChatService
+    ){}  
+
+    6.2 เรียกใช้ function postMessage ใน function OnSubmit()
+    
+    onSubmit(){
+    let message = this.chatFormGroup.controls.message.value;
+    this.chatService.postMessage(message); <<---- เรียก เพิ่มเข้าใน onSubmit
+    }
+     
+  7. ทำ interface มาซักอันหนึงเอาไว้รับ return ชื่อ i-chat-response.ts
+      ใช้คำสั่ง ng generate interface interfaces/i-chat-response 
+        export interface IChatResponse{
+            
+       }      
+                                   ออปเซอร์ไวเวอร์ เอาไว้ใช้สำหรับ return กลับมา
+ 8. เติม interface ใน function post  V            V    (ไฟล์ chat.service.ts)
+   postMessage(message: string): Observable<IChatResponse>{ <<--- เพิ่ม IchatResponse
+    let url = 'http://localhost:8080/chat/message';
+    let body = {
+      message: message
+    }
+    return this.http.post<IChatResponse>(url,body); <<--- เพิ่ม IchatResponse และ return
+  }      
+
+  import { Observable } from 'rxjs'; <<< import Observable ด้วยนะ ไม่งั้นก็หาไม่เจอ
+     
+
+  --- ในไฟล์ chat.component.ts ---
+  9. subscribe ใน function onSubmit ตอน call function postMessage ส่ง message เข้าไป
+  onSubmit(){
+    let message = this.chatFormGroup.controls.message.value;
+
+    this.chatService.postMessage(message).subscribe((response)=>{
+      
+    })
+  }
+
+  *note* รูปแบบการ return                                                      ถ้าไม่ผ่าน
+                                        subscire  ถ้าผ่าน (reponse)=>{ให้ทำอะไร},(error)=>{ให้ทำอะไร}
+                                           V      V
+  this.chatService.postMessage(message).subscribe()
+
+
+  *note* ดู log เวลา error ของหน้าบ้านเวลาคอลหลังบ้านแล้วเงียบ
+  คลิ๊กขวา > inspect ที่ browser > Networks > กดที่ POST ขวามือจะมี request กับ response ให้ดูว่าส่งอะไรไป return อะไรกลับมา
+
+
+  ส่ง message ไปทาง ReseAPI return กลับมาให้ทาง Socket
+
+    10. ใช้ interface ทำ array เอาไปใช้ในหน้า html
+      10.1 สร้าง interface 'i-chat-messages.ts'
+         export interface IChatMessage{
+          from?: string
+          message?: string
+          created?: Date
+         }
+
+      10.2 ประกาศตัวแปรใน chat.component.ts เก็บเป็น Array ไว้
+         messages = IChatMessage[]=[];  
+
+      10.3 เอาไปใช้ในหน้า chat html
+         ใช้ใน tag <ul>   IChatMessage  ตัวแปรในหน้า ts     
+         <ul>                V          V      
+           <li *ngFor="let message of messages">
+             {{message.from}} - {{message.message}} - {{message.created}}
+           </li>                      
+         </ul>    
+
+  *note* ยิงเข้ามาผ่าน API http แต่ส่งออกไปผ่าน WebSocket       
+
+  การส่งค่ามาจากหลังบ้านผ่าน websocket
+
+  ChatBusiness (ส่วนของ backend นะ)
+  public void getMessage(ChatMessageRequest request){
+      String destination = "/topic/chat"; // กำหนด channel ที่จะส่ง
+      ChatMessage payload = new ChatMessage();
+      payload.setFrom("user test"); // ข้อมูลของผู้ส่ง
+      payload.setMessage(request.getMessage()); // ข้อความที่จะส่งจาก request
+      template.convertAndSend(destination, payload); // ส่ง payload ไปยัง "/topic/chat"
+  }
+
+
+  ในไฟล์ chat.component.ts
+  private CHANNEL ='/topic/chat'; <--- destination หน้าบ้าน
+
+  ในไฟล์ chat.component.ts
+
+  private subscribeToGlobalChat(){
+    console.log('xxx4');
+    this.stompClient.subscribe(this.CHANNEL, (message: any) =>{   
+      
+      let newMessage = JSON.parse(message.body) as IChatMessages  <<--- pass JSON
+      this.messages.push(newMessage);         <--- push message ไป
+    });
+  }  
+
+  *note* ยิงผ่านหน้าบ้านไปหลังบ้านผ่าน API Rest เพราะว่าจะได้ control พวก permission พวกสิทธิ์ต่างๆได้
+   ถ้าเป็น socket ไป socket มันอาจจะคุมสิทธิ์ยาก เช่น แอพแชตถ้ายังไม่เป็นเพื่อนกันก็ไม่ควรจะคุยกันได้ ก่อนที่จะส่งกลับมา
+
+
+   สรุป websocket

@@ -1,0 +1,40 @@
+ตั้งค่าการเปิด VSCode จาก terminal ด้วยคำสั่ง code .
+    1. เปิด VSCode
+    2. ไปที่ View > Command Palette
+    3. พิมพ์คำว่า Shell Command และเลือก Shell Command: Install
+    4. หากสำเร็จ จะมีข้อความแจ้งว่า Shell command 'code' successfully 
+
+    เวลาใช้
+    1. ไปที่ cd project หรือ local ที่จะเปิด
+    2. ใช้คำสั่ง $ code .    --มันจะเปิด vscode ให้
+
+ติดตั้ง Extendsions 
+    1. Docker --เพื่อใช้ command ของ docker ได้ ให้มันเดาคำในไฟล์ yaml ให้
+
+ตั้งค่า เวลากด tab ให้มัน insert spacebar แทน
+    1. ไปที่ Settings (Cmd + ,)
+    2. ค้นหา Indentation จะอยู่ตรง Insert Spaces
+    3. กดติ๊กเลือก Insert Spaces
+    4. เวลาใช้ก็กด tab ได้เลยมันจะแทน spacebar ให้
+
+เปลี่ยน shotcut key ใน vscode
+    ไปที่ code > preferace > Keyborad shotcut  
+    ค้นหาคำว่า   
+
+เอา terminal ขึ้นมาเป็นอีก 1 tab เปิดจอใหญ่ๆไม่ต้องใปอยู่หรือใช้ข้างล่างเล็กๆ สะดวกกว่า
+    shift + cmm + p > มันจะขึ้นข้างบนมา พิมพ์คำว่า terminal เพื่อค้นหาเลือก Create Terminal
+
+auto formate เวลากด save จัดระเบียบไฟล์ให้ใหม่
+    1. ติดตั้ง Extendsion: YAML ของ Red hat  
+    2. cmd+,
+    3. เปิดไฟล์ settings.json โดยกดที่รูปสมุดที่มีลูกศรชี้ตรงขวาบน 
+    5. เพิ่มคำสั่งนี้เข้าไป
+        "[yaml]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "editor.formatOnSave": true
+
+
+ปิด sticky scroll
+   คลิ๊กขวาที่แถบไอ้ที่ไม่อยากได้ กดติ๊กออก
+    

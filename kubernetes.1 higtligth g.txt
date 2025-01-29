@@ -1,0 +1,295 @@
+Kuberneties 
+
+#ประวัติ
+  ยุคแรก 1 เครื่อง 1 os ลงแอพในนี้ จะเพิ่มแรมเพิ่มฮาร์ดดิสก็ต้องเพิ่มในนี้จะขยายเครื่องก็ต้องซื้อเครื่องมาใหม่                                     os
+  ยุคที่สองมี 1 เครื่องแต่อัดแรม ฮาร์ดดิสมาเยอะ เอามาแบ่งลงแต่ละ os เพื่อเอาไปลงแอพแยกส่วนกัน เหมือนลงระบบแอนดรอยในคอมแล้วจะลงแอพไรก็ลงไป 1 os
+  ยุคที่สาม มี่ 1 เครื่องแต่รันเป็น container หลายๆ container (vm) ก็ได้ รันจะจนแรมหมด cpu หมด                                            os
+  ปัจจุบันกลายมาเป็น kuberneties จะใช้เครื่องเป็น could แรม cpu มหาสาร และสเกลเครื่องได้ด้วย
+    - docker ก็ทำได้แต่ได้ในพื้นฐาน (ทำสเกล)
+    - docker ถ้า container postgres เจ๋งกระบ้งไม่สามารถ backup ได้ต้องสร้างใหม่ แต่ kuberneties backup ได้
+    - rollback กลับไป version ได้
+    - สเกลอัพขึ้นมารองรับ user ได้
+    - สามารถปลุกให้ตื่นได้ถ้า service ตาย สามารถ restart แอพขึ้นมาได้
+    - ใช้ manage secret และ config อะไรต่างๆได้
+              
+#ผู้ให้บริการ Kuberneties (พัฒนาตัวพื้นฐานโดย google ทำเป็น open source ให้คนอื่นใช้ แต่ก่อนใช้กับโปรเจคแค่ใน google)
+    - Amazon Web Service (AWS) ใช้ Kuberneties ชื่อ (EKS amazon elastic service)
+    - google could (gke)
+    - digitail ogean
+    - kops (ใครที่ hardcore หน่อยต้องตัวนี้ครับใช้ผ่าน command line เลย)
+
+  เอาไว้ทดสอบคำสั่งหรือเล่น
+    - minikube 
+    - micro k8s 
+    - kind (kubernetes in docker)
+
+#โคตรสร้าง k8s
+                                      secret(db)
+                                    / 
+                      namespace (db) - pods
+                    /              \ 
+                  /                  service
+  cluster  -  node                   
+                  \                    secret(myapp all valible evaluement)
+                    \                 / 
+                    namespace (myapp) - pods 
+                                      \ 
+                                        service 
+
+
+# เอา image ขึ้น registry แบบ microk8s
+    1.เข้าเว็บ microk8s > get started > เลือก tab macOs > brew install ubuntu/microk8s/microk8s
+    2.โหลดโปรแกรม $ brew install ubuntu/microk8s/microk8s
+    3 ติดตั้ง microk8s 
+        $ microk8s install --cpu 2 --mem 2 --disk 10
+
+        $ microk8s uninstall
+        $ microk8s stop 
+        $ multipass list
+
+        ถอน multipass แบบหมดจด
+        multipass delete --all
+        multipass purge
+        brew uninstall multipass
+        microk8s install --cpu 1 --mem 2 --disk 10 //ให้ microk8s ลงให้ใหม่พอมันลงมันจะหาไม่เจอมันก็จะลงให้
+        
+        
+
+    4.5 microk8s status ดูว่าจะ enable function ใหนมาใช้งานบ้าง  
+
+    5. enable plugin
+       microk8s enable dashboard dns metrics-server registry
+
+    6.ได้แล้ว ลองใช้คำสั่ง
+      (ขึ้นต้นด้วย microk8s แล้วตามด้วย kubectl)
+      microk8s kubectl get all -n myapp
+
+    7.ดู dashborad
+      พิมพ์ $ microk8s dashboard-proxy
+      7.1 จะขึ้น
+      Dashboard will be available at https://192.168.64.2:10443  
+      Use the following token to login:
+      eyJhbGciOiJSUzI1NiIsImtpZCI...
+  
+
+      7.2. เอา link ไปเปิดใน browser chome https://192.168.64.2:10443 
+           เลือก Token to Login
+           แล้วไส่ Token ข้างล่าง จะโดย dashboard บนเว็บ (ปิด command ออกเว็บ terminate)
+
+      7.3 หรือดูผ่านโปรแกรม Lense
+          พิมพ์คำสั่ง microk8s config แล้ว copy output ทั้งหมดมาไส่ในโปรแกรม Lense
+
+      8. ไปที่ path ของ app  (สร้าง image)
+         $ docker build -t myapp:latest .
+   
+      9. tag image (เหมือนสร้างมาอีกชื่อหนึ่งนั้นแหละโดยใช้ iamge เดิมที่มีอยู่)
+         $ docker tag myapp:latest localhost:32000/myapp:latest
+
+      10. push image ขึ้นไป registry 
+         $ docker push localhost:32000/myapp:latest
+
+      11  เช็คบน registry มีแล้ว image แล้วหรือยัง  (มันก็เหมือนแอพแอพหนึงเลย รันอยู่บน 1 namespace)
+         $ microk8s kubectl get pods -n container-registry 
+
+#เอา image ขึ้น registry (Docker)
+  1. ติดตั้ง Registry ก่อน เข้าเว็บ docker hub หรือ google ค้นหา docker registry
+    $: docker pull registry
+
+  2. รัน image registry                                               (images name)                              
+      docker run -d --name myregistry -p 5000:5000 --restart always registry:latest  //จะได้ container ของ registry รันอยู่
+
+  3. สร้างและเปลี่ยนชื่อ image ให้เป็นชื่อใหม่
+                   (image เดิม)       (ไปเป็นชื่อใหม่)  (ที่ชื่อว่า ชื่อเดิมเลย)
+        docker tag myapp:latest localhost:5000/myapp:latest     //Enter 
+
+
+  4. push มันไป มันจะเข้าไป container ใน registry ของเรา (cluster destop)
+        
+        รูปแบบการ push [registry-host:port]/image-name:tag  //(docker ทำแบบนี้เพราะจะได้เปลี่ยนเป็น registry จาก host อื่นได้ เช่น docker hub, ของ cloud ต่างๆ)
+
+                      (push ไปที่)
+        docker push localhost:5000/myapp:latest  //Enter ไป
+    
+    //จบ part registry
+
+#ติดตั้งโปรแกรม                    
+  1.ติดตั้ง helm
+     $ brew install helm
+
+    note 
+         บอกว่าให้เพิ่มชื่อโปรแกรมนี้เข้าไปใน helm (เหมือน git remote add) เอาไว้กำหนดเส้นทางดึงและโหลด
+         helm repo add gitlab https://charts.gitlab.io
+                        ^             ^
+                       ตั้งชื่อ repo    url
+         
+         หลังจาก add ไปแล้วสามารถใช้คำสั่ง 
+          helm repo update
+          helm search repo
+
+         ติดตั้งแบบ add repo แล้ว
+          helm repo add gitlab https://charts.gitlab.io
+          helm install my-release gitlab/gitlab
+                          ^             ^
+                          ตั้งชื่อ         ชื่อ repo
+
+         ติดตั้งแบบยิงตรง ตั้งชื่อ แลัวไส่ url
+          helm install my-release https://charts.gitlab.io/gitlab-1.0.0.tgz
+                
+  
+
+  3. install โปรแกรมต่างๆ
+
+ helm install postgres oci://registry-1.docker.io/bitnamicharts/postgresql --namespace db
+    helm install redis oci://registry-1.docker.io/bitnamicharts/redis --namespace redis --set replica.replicaCount=0
+
+    helm pull oci://registry-1.docker.io/bitnamicharts/kafka --untar
+    เข้าไปในไฟล์ vaules.yaml
+     หา replicaCount ที่อยู่ในภายใต้ tag controller
+        replicaCount: 1
+
+    helm install kafka . --namespace kafka
+    helm upgrade kafka . --namespace kafka
+    helm uninstall kafka . --namespace kafka
+      
+
+13. ทดสอบการเชื่อมต่อ 
+
+    13.1 ทดสอบ DB postges ลอง forward port และลองต่อจาก pgAdmin จากข้างล่าง
+        ลอง forward port เพื่อลองต่อ db จากข้างล่าง (ไม่ได้รันจาก docker แล้ว ไปดูได้ container postges ไม่ได้รัน)
+        - forward port                    
+                                      Fix   (service name)  (port)
+                                       V         V            V
+          kubectl -n db port-forward service/postgresql 5432:5432
+          
+          << เปิดโปรแกม pgAdmin ไส่ password ที่อยู่ข้างบน ไม่ใช่ syspass นะจ๊ะ
+
+
+    13.2 ทดสอบ redis
+          k get secret redis -n redis -o yaml  //ดู secret และเปิดไฟล์
+          
+          เอารหัสมาแกะ
+          echo -n "R2V2ZUUxRDBQUQ==" | base64 --decode  (เวลาถอดรหัส ให้ไส่ --decode)
+
+          //helm ไม่ให้แปะ password ตรงๆ ต้องใช้เป็นเก็บเข้าตัวแปรก่อน แล้วค่อยเอาใช้
+          REDIS_PASSWORD=$(kubectl get secret --namespace redis redis -o jsonpath="{.data.redis-password}" | base64 --decode) 
+          kubectl exec -it redis-master-0 -n redis -- redis-cli -a $REDIS_PASSWORD
+
+          #ทดสอบping ดู
+          127.0.0.1:6379> ping
+          PONG
+          
+          #ลอง set key
+          $: set test-key "Hello Redis"
+          OK
+
+          #ลอง get key
+          $: get test-key
+          "Hello Redis" //ควรได้แบบนี้
+
+    13.3 ทดสอบ kafka
+
+      ติดตั้ง zookeeper
+      ติดตั้ง ปกติจะมีอยู่แล้วถ้าเคยลง $: kafka มาแล้ว helm repo add bitnami https://charts.bitnami.com/bitnami
+      ค้นหา repo $: helm search repo bitnami/zookeeper
+      ติดตั้งแยก : helm install zookeeper bitnami/zookeeper --namespace kafka
+
+      ลองดู มาแล้ว $: kubectl get pods -n kafka
+      NAME                 READY   STATUS    RESTARTS   AGE
+      kafka-controller-0   1/1     Running   0          7m37s
+  >>> zookeeper-0          0/1     Pending   0          2m11s
+
+
+      ดู log pods
+        kubectl logs <ชื่อ-pod-Kafka> -n namespace
+        kubectl logs kafka-controller-0 -n kafka
+
+        kubectl exec -it kafka-controller-0 -n kafka -- /bin/sh -c "kafka-topics.sh --create --topic test-topic --partitions 1 --replication-factor 1 --bootstrap-server kafka:9092"
+
+
+       kubectl exec -it <kafka-pod-name> -- /bin/sh -c "kafka-topics.sh --create --topic test-topic --partitions 1 --replication-factor 1 --bootstrap-server <kafka-service>:<port>"
+       kubectl exec -it kafka-controller-0 -- /bin/sh -c "kafka-topics.sh --create --topic test-topic --partitions 1 --replication-factor 1 --bootstrap-server kafka:9092"
+
+        
+14. ติดตั้ง mitrices-server ใน kubernetes in docker
+
+    มันจะโหลดไฟล์ yaml และ deploy ตัว server metrices-server มามันจะลงใน namespace kube-system
+    kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+    
+    หลังจากลงแล้วเช็คการทำงานดู
+    kubectl get pods -n kube-system
+       คุณควรเห็น Pod ที่ชื่อ metrics-server-xxxxxxx-yyyyy  พร้อมสถานะ Running
+
+    ถ้ารันไม่ขึ้นเป็น 1/1 ให้โหลดไฟล์มา
+    curl -LO https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml  
+
+    เพิ่ม
+    kind: Deployment
+    spec:
+      spec:
+        args:
+        - --kubelet-insecure-tls 
+
+    แล้วรันใหม่
+    kubectl apply -f components.yaml
+    
+    เช็ค status ดูอีกที 1/1 ยัง
+    kubectl get pods -n kube-system
+    kubectl top pods --all-namespaces
+
+
+    ถ้าได้แล้ว ลองใช้คำสั่ง  
+    kubectl top nodes   ---แตกต่างจากคำสั่ง k describe nodes ของอันนี้จะเอาที่กำหนดไว้ใน request limit มาโชว์แค่นั้นไม่ใช่ที่ใช้จริง
+    kubectl top pods -n kafka
+
+    เข้าไป set cpu ram ที่ docker จะใช้ได้ใน menu setting แล้วใช้คู่กับคำสั่ง kubectl top pods --all-namespaces ในการคำนวน cpu ram ที่มันใช้ทั้งหมด
+
+  
+
+15. เอาไฟล์ secret ขึ้น
+kubectl apply -f myapp-secret.yaml //set secret
+
+    แก้ไฟล์ secret ของ myapp
+    k edit secret myapp -n myapp -o yaml
+
+    db
+        host คือ servicename.namespace
+        username : postgres
+        password: คำสั่ง k get secret -n db -o yaml 
+        port เอาจากคำสั่ง get all
+
+    kafka
+        host คือ servicename.namespace
+        port เอาจากคำสั่ง get all
+
+    redis
+       host คือ servicename.namespace   
+       password: คำสั่ง k get secret -n redis -o yaml  
+       port เอาจากคำสั่ง get all 
+
+
+16. เอาไฟล์ spec ขึ้น
+     เอาไฟล์ขึ้น
+     ไปที่ path ของ project อัพไฟล์ขึ้น
+     kubectl apply -f backend-spec.yaml
+
+     ดู logs
+       kubectl describe pod myapp-84bfb8f478-x89kf -n training  ----ดู log start pod 
+       kubectl logs -f -l app=myapp -n myapp   ----ดู log ของ app ภายใน pod 
+
+ 17. forward ไว้ใช้
+                                   (service ตัวแรกที่ไม่ใช้ h1)
+    kubectl port-forward service/postgres-postgresql 5432:5432  -n db
+
+    lsof -i :5432 ---kill process   
+
+
+    --dry-run=client //คำสั่งนี้จะไม่สร้างจริง 
+    
+
+18. kubegetalltree เปลี่ยนคำสั่ง
+    vi ~/.zshrc
+    source ~/.zshrc
+      
+
+
+

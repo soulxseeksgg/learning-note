@@ -1,0 +1,78 @@
+
+-------------- flow step --------------
+
+kubernetest                                        gitlab   
+
+    1. install posgres, redis,kafka                 4. create group               
+    3. k edit secret -n myapp -o yaml                   4.1 create project k8s-connection
+    4.3 run agent pod                     <---------         4.2. create agent (operate > kubernetes cluster)
+                                                             4.3 สร้างไฟล์ .gitlab/agents/k8s-agent/config.yaml กำหนดสิทธิ์ใช้ agent
+
+                                                    5. generate token access to gitlab (ตั้งสิทธิ์ read write registry)    
+                                                    
+local
+    2. k apply -f myapp-secret.yaml   
+    5.1 add token in file gitlab-auth-registry.json
+    5.2 cat and add auth in file gitlab-secret.yaml
+    5.3 k apply -f gitlab-secret.yaml
+                                                     6. create project k8s-myapp
+                                                  
+    6.1. add remote | git remote add gitlab-myapp git@gitlab.com:devops8532701/k8s-myapp.git
+    6.2 edit file myapp-spec.yaml
+        - แก้ตรง image ไส่เป็น registry ชี้ไปที่ gitlab
+        - แก้ชื่อ secret-gitlab ให้ตรง
+    6.3 k apply -f myapp-spec.yaml
+
+    7. สร้างไฟล์ .gitlab-ci.yml
+        build
+        image //แก้เลข group และชื่อโปรเจค
+        deploy //แก้เหมือนกัน
+
+    8. push โค๊ดขึ้น gitlab                            9. ดู pipeline ที่รัน
+    10. k logs -l app=myapp -n myapp -f
+        ลอง call actuator/health  
+        
+-------------- flow step --------------
+
+---- step อย่างละเอียด ------
+
+1. ทำฝั่ง kubernetes              
+    - install แอพ
+        postgres
+        redis
+        kafka
+
+    - อัพ secret ขึ้น 
+        set secret ของ app
+
+2. create group
+    - create k8s-connection
+    - สร้าง agent เอา command ไปรันฝั่ง kubernetes เพื่อเชื่อมต่อ สีเขียว connected
+    - 4.3 สร้างไฟล์ .gitlab/agents/k8s-agent/config.yaml กำหนดสิทธิ์ใช้ agent
+         ci_access:
+            groups:
+            - id: group1
+
+
+3. สร้าง token สำหรับการเข้าถึง gitlab และ registry  
+    - ไปเอา token ที่ profile > access token > new token > set สิทธ์ให้สามารถใช้สิทธิ token ในการ read write registry 
+
+    - เอาไป แปบในไฟล์ authen gitlab แล้วก็ cat file แล้วไปแปะในไฟล์ gitlab secret อีกที
+
+4. สร้าง k8s-myapp
+    - ได้ github url มา add remote -v
+    
+
+5. ไฟล์ spec.yaml
+    แก้ตรง
+        image: ให้เป็น group ใหม่ที่ชี้ไปที่ project
+        ดูตรงชื่อ secret ของ gitlab
+
+    kubectl apply -f myapp-spect.yaml    
+
+    - สร้างไฟล์ .gitlab-ci.yaml
+       ไส่ build
+          image  //แก้ตรงเลข group กับชื่อ id ให้ตรงกับของ gitlab
+          deploy //ข้างล่างด้วย
+
+    push code ขึ้นไป gitlab      

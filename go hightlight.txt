@@ -1,0 +1,597 @@
+shot key
+    comment แบบเยอะๆ cmd+/
+    cmd+, ค้นหา Show Snippets แล้วติ๊กเลือกเพื่อใช้ Snippets
+
+    tys = struc
+
+create project
+    cd project part
+    go mod init github.com/soulxseeksgg/go-project
+        จะได้ไฟล์ go.mod ไฟล์ go.sum ยังไม่มาถ้าไม่ได้เรียกใช้ library ข้างนอก
+
+frist run
+    package main
+
+    import "fmt"
+
+    func main() {
+        fmt.Println("gg")
+    }
+    
+dogo (auto run)
+    config
+        go install github.com/liudng/dogo@latest ---มันจะรันโค๊ดทุกครั้งให้เราทุกครั้งที่มีการเปลี่ยนแปลง
+        echo 'export PATH=$PATH:$HOME/go/bin' >> ~/.zshrc
+        source ~/.zshrc
+
+    cd เข้า project
+    สร้างไฟล์ dogo.json
+        {
+            "WorkingDir": ".",  --- . คือ current dir ที่อยู่ของไฟล์ปัจุบันเรา
+            "SourceDir": [
+                "."
+            ],
+            "SourceExt": [".c", ".cpp", ".go", ".h"],
+            "BuildCmd": "go build -o ./main ./cmd/api/main.go",    ---- set file main path for run
+            "RunCmd": "./main",   ---- ชื่อไฟล์ output หลังจากรัน
+            "Decreasing": 1
+        }
+
+    use (monitor run)
+        dogo init go-project
+
+import
+    go-project/cmd/api
+    ไฟล์ main.go
+    import {
+	    "fmt"
+	    "go-project/internal/server"
+    } 
+
+    func main(){
+        server.Ginx()
+    }
+
+    go-project/internal/server
+    ไฟล์ routes.go
+
+    package server
+
+    func Ginx() {   ----ตัวพิมพ์ใหญ่เสมอไม่งั้นหาไม่เจอ import ไม่ได้
+       fmt.Println("gg")
+    }
+
+    ------
+    หรือใช้แบบนี้ก็ได้
+    pb "server/helloworldpb"  //ชื่อ package
+    pb.RegisterGreeterServer() // ---เรียกผ่านชื่อเลย
+
+dependency
+    แล้วเพิ่มเข้ามาจากข้างนอกต้องอัพเดทด้วย
+
+ตัวแปร
+
+    ประกาศแบบมี type
+        fix   name    tyep   value
+        V     V       V      V
+        var numberInt int = "10"
+ 
+    ประกาศแบบ shot ไม่ไส่ type
+        nmae   ใช้ : value
+        V      V    V
+        nunbetFloat := 10.1
+
+    การบวกกันของตัวแปร เลือกเอาซัก type หนึง
+       fmt.Println(numberInt+(int)numberFloat)   
+
+
+    arry
+        แบบประกาศแบบมี type ใ้ช้ var
+            var productName [4]string
+            productName[0] = "macbook"
+            productName[1] = "ipad"
+            productName[2] = "iphone"  
+            
+        แบบกำหนดค่า (ไม่ต้องใช้ var)
+                    (size)
+            price := [4]float32{40000,20000,20000}
+
+        แบบ slacie (สไลด์) ยืดหยุ่นกว่า array  append ได้ลบได้
+                    ตรงนี้ไม่ไส่จำนวน index
+                            v
+            var productName []string
+            productName = append(productName, "ipod","macbook","iphone")
+
+            เลือกมาปริ้น
+            productNameFocus := productName[1:2]  ---การเลือกสินค้า 0-2 (ไม่รวม 2)
+
+        map
+            var product = make(map[string]float32) --- ประกาศไม่กำหนดค่า
+            product2 := map[string]float32{"macbook": 40000, "ipad": 20000}  --- แบบ shot กำหนดค่าไปด้วย
+            product["macbook"] = 40000  ---- add update
+            delete(product, "ipad")  --- delete
+            macbookValue := product["macbook"]  ---- get value
+
+print & log , panic
+    fmt.println()
+    fmt.print() --สามารถไส่ \n ได้ แต่ไส่ formate %d %s ได้
+    fmt.printf("name %s\n",name)  ---เอาไว้ print \n ขึ้นบรรทัดใหม่ f มาจากคำว่า formate สามารถแปะ %d %s ได้ ใน print เฉยๆ กับ println ทำไม่ได้ 
+    msg := fmt.Sprintf("name %s\n",name)  ---คืนค่าเป็น string ไม่พิมพ์ออก console
+
+    log.Fatal  //แสดง log error ที่ปริ้นไว้และหยุดโปรแกรม โดยใช้ exit() (ใช้กับพวกสาถารกณ์ที่คาดการณ์ได้ เช่น connect database ไมไ่ด้)
+    panic // หยุดโปรแกรมและบอกว่ามันพังที่ function ใหนบอกรายละเอียดตำแหน่ง (ใช้กับสถานการณ์ที่ไม่สามารถคาดการณ์ได้)
+
+function
+    //ประกาศง่าย
+    func hello() {
+	    fmt.Print("hello")
+    }
+
+    //แบบมีการรับค่าและ return 
+    func plus(num1 int, num2 int) int {  ---ตรงที่รับค่าไม่ไส่ไทป์ทุกตัวก็ได้ ถ้าไส่มันไทป์เดียวกันก็ไส่แค่อันเดียวได้
+	return num1 + num2
+    }
+
+
+    //เรียกใช้
+    func main(){
+        hello()  ---เรียกตรงๆแบบนี้เลย
+        result := plus(4,5) --- เรียกแบบส่งตัวแปรและรับค่า
+    }
+
+pointer 
+    func setPointer(iponiter *int) {  <--- 2. บอกว่าจะรับเป็นตัวแปร pointer
+        *iponiter = 0     <--- 3. และจะชี้ไปที่ address นั้นและ set ค่า
+    }
+
+    func main(){
+        i := 1   
+        setPointer(&i)  <<---- 1. ส่ง i ไปและแปะ address ไปด้วย ทำให้มันสามารถอัพเดทค่าของ address นี้ได้ผ่านตัวแปรอื่น
+        fmt.Println("i value resutl: ", i) <---4. i จะได้เป็น 0 ละ เพราะว่า address นี้โดย set เป็น 0 จากตรงนู้น
+    }
+
+if else Scanf รับค่า
+
+    var score int
+	fmt.Scanf("%d", &score)
+
+	if score >= 80 {
+		fmt.Println("A")
+	} else {   <---- ห้ามขึ้นบรรทัพใหม่บังคับต่อจาก { และถ้ามันผิดตรงใหนมันจะบังคับแก้ให้ถูกไม่งั้นไม่ auto gen คำมาให้ใหม่เวลาพิมพ์
+		fmt.Println("B")
+	}    
+
+for & while 
+    #for
+    for i = 0; i < 5; i++ {
+		fmt.Println("i: ", i)
+	}
+
+    #while
+	x := 5
+	for {
+		fmt.Println("xx")
+		if x == 1 {
+			break
+		}
+		x--
+	}
+
+switch case
+    input := 80
+	switch {  <------ ตรงนี้ไส่เป็น switch input แบบนี้ก็ได้ แล้วข้างล่างก็ไม่ต้องไส่ตัวแปร ให้มันเช็คแบบตรงๆ
+	case input >= 80:   
+		fmt.Println("A")
+	case input >= 70:
+		fmt.Println("B")
+	default:
+		fmt.Println("null")
+	}
+
+struc
+    hotkey tys
+
+    จริงๆมันทำงานเหมือนตัวแปร fields ใน class ของ java จะเรียกใช้จากตรงใหนก็ได้
+    แต่เป็น filed แบบก้อนใหญ่หน่อย
+
+    1. เรียกได้เลย
+        type Person struct { ---ทำงานเหมือน fields ของคลาส มันสามารถเอาไปใช้ใน func ได้
+            Name string
+            Age  int
+        }
+
+        func main(){
+            user := Person{Email: "toon", age: "34"}
+        }
+
+    2. ข้ามไฟล์ ต้อง import มาก่อน
+        import (
+        "fmt"
+        "yourmodule/user"  // import package user
+        )
+
+        func main() {
+                    (อ้างอิง instance ใน package ที่ import มา)
+            user := user.User{Email: "toon@gmail.com", Password: "1234xx"}
+            fmt.Println(user.Email)
+        }
+
+    3. เรียกได้เลยเหมือนกันตอนใช้ร่วมกับ pointer
+        type User struct {
+            Email    string
+            Password string
+        }
+
+        func main() {
+            user := &User{Email: "toon@gmail.com", Password: "1234xx"}
+            fmt.Println(user.Email)  // toon@gmail.com
+        }
+
+    4. การใช้ struct เป็นตัว argument ในการรับค่าใน function
+        type User struct {
+            Email    string
+            Password string
+        }
+
+        // method ที่ผูกกับ User struct
+        func (u User) Speck() {
+            fmt.Println("User's email is:", u.Email)
+        }    
+
+
+    func (p Person) Speak() string {  ---ใน go จะไม่มีเนื้อของ class ใช้แบบนี้เอาดึง struct มาใช้ จะทำอะไรก็ทำในนี้
+        return "Hello, my name is " + p.Name
+    }
+
+interface
+    key tyi
+
+    type Speaker interface {
+	Speak() string
+    }
+
+    type Person struct {
+        Name string
+    }
+
+    func (p Person) Speak() string { // Person imprement Speak
+        return "Hello, my name is " + p.Name
+    }
+
+    type Dog struct {
+        Name string
+    }
+
+    func (d Dog) Speak() string {
+        return "Woo, my name is " + d.Name
+    }
+
+    func introduce(speaker Speaker) {
+        fmt.Println(speaker.Speak())
+    }
+
+    func main() {
+
+        p := Person{Name: "John"}
+        introduce(p)
+
+        d := Dog{Name: "Mhee"}
+        introduce(d)
+
+    }
+
+concurrent (การแยกการทำงาน)
+
+    go routine + waitgroup
+        func worker(name string, wg *sync.WaitGroup) { //---4 รับค่าตัวแปร waitgroup เข้าไปด้วย เป้าหมายเพื่อจะลดค่าการนับ
+            defer wg.Done() //---5 ให้ลบค่า waitgroup ลงเมื่อทำเสร็จไปแล้ว 1 งาน (รอให้เสร็จก่อนมันเหมือนโปรแกรมโปรแกรมหนึ่งมันไม่ใช่โค๊ดมันรอได้)
+            for i := 0; i < 100; i++ {
+                fmt.Println("working by: ", name, " ", i)
+            }
+        }
+
+        func main() {
+            var wg sync.WaitGroup  //---1.ประกาศตัวแปร waitgroup
+            wg.Add(2)              //---2.บอกว่ามีกี่ group routines ที่จะทำ
+            go worker("john", &wg) //--3.เรียกให้ทำงานพร้อมส่งตัวนับไปด้วยเพื่อลดค่า waitgroup เมื่อทำเสร็จ
+            go worker("dept", &wg) 
+
+            wg.Wait() //---6. สั่งให้ main รอทำให้เสร็จค่อยปิดโปรแกรม
+        }
+
+    routine + waitgroup + channel
+     func worker(wg *sync.WaitGroup, a, b int, ch chan int) {
+	    defer wg.Done()
+	    result := a + b
+
+	    ch <- result
+    }
+
+    func main() {
+
+        var wg sync.WaitGroup
+        ch := make(chan int, 2)
+
+        wg.Add(2)
+        // สร้าง Goroutines
+        go worker(&wg, 5, 3, ch)
+        go worker(&wg, 7, 2, ch)
+
+        // รับผลลัพธ์จาก channel
+        result1 := <-ch
+        result2 := <-ch
+
+        // แสดงผลลัพธ์
+        fmt.Println("worker1:", result1)
+        fmt.Println("worker2:", result2)
+
+        wg.Wait()
+    }
+
+    chanel และ <-ตามด้วยชื่อ chanel
+        func example() {
+            done := make(chan bool)
+
+            go func() {
+                fmt.Println("Background work")
+                done <- true // ส่งสัญญาณว่าเสร็จแล้ว
+            }()
+
+            <-done // รอรับสัญญาณจาก goroutine
+            fmt.Println("Main goroutine finished")
+        }
+
+๋JSON
+    type user struct {
+        Email    string
+        Password string
+    }
+
+    func main() {
+        //marshal เข้าหรือ set json
+            (ไม่สนใจ err return)
+                    v
+        userJson, _ := json.Marshal(&user{"toon@gmail.com", "1234xx"})
+        fmt.Println("json Mashal: ", string(userJson))
+
+
+        //unmarshal ถอด json
+                                (ใช้ค่าจากตัวแปร json)
+        data := user{}                  v
+        err := json.Unmarshal([]byte(userJson), &data)
+        if err != nil {
+            log.Fatal(err)
+        } 
+            fmt.Println("Json UnMarshal:", data.Email)  ----เรียกแบบ data. ได้
+        }
+
+API + middelware + Cros  (request Filter เหมือนของ spring boot)
+    key : ไม่มีต้องพิมพ์เอง
+
+    type User struct {
+        Name string `json:"name"`
+        Age  int    `json:"age"`
+    }
+
+    func corsMiddleware(next http.Handler) http.Handler {
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+            // ตั้งค่า CORS headers
+            w.Header().Set("Access-Control-Allow-Origin", "*") // หรือระบุโดเมนที่อนุญาต
+            w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+            w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+            // ถ้าเป็น preflight request (OPTIONS)
+            if r.Method == http.MethodOptions {
+                w.WriteHeader(http.StatusOK)
+                return
+            }
+
+            // ส่งต่อ request ไปยัง handler ต่อไป
+            next.ServeHTTP(w, r)
+        })
+    }
+
+    func apiHandler(w http.ResponseWriter, r *http.Request) {
+        if r.Method == http.MethodPost {
+            var user User
+
+            // อ่านข้อมูล JSON จาก body
+            decoder := json.NewDecoder(r.Body)
+            err := decoder.Decode(&user)
+            if err != nil {
+                http.Error(w, "Invalid request body", http.StatusBadRequest)
+                return
+            }
+
+            // ตรวจสอบข้อมูล
+            if user.Name == "" || user.Age <= 0 {
+                http.Error(w, "Invalid user data", http.StatusBadRequest)
+                return
+            }
+
+            // ส่ง response กลับไป
+            response := map[string]string{"status": "success", "message": "User created"}
+            w.Header().Set("Content-Type", "application/json")
+            w.WriteHeader(http.StatusOK)
+            json.NewEncoder(w).Encode(response)
+        } else {
+            http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+        }
+    }
+
+    func main() {
+        mux := http.NewServeMux()
+        mux.HandleFunc("/api", apiHandler)
+
+        // ใช้ CORS Middleware
+        log.Println("Server starting on :8080")
+        http.ListenAndServe(":8080", corsMiddleware(mux))
+    }
+
+่ทดสอบ cors
+    สร้างไฟล์ html ไส่อันนี้เข้าไป แล้วเปิดไฟล์จาก browser (เข้าผ่าน folder เข้าไปเปิดนี้แหละ) มันขึ้น cors acess error
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>CORS Test</title>
+    </head>
+    <body>
+        <script>
+            fetch('http://localhost:8080/ping')
+                .then(response => response.json())
+                .then(data => console.log(data))
+                .catch(error => console.error('Error:', error));
+        </script>
+    </body>
+    </html>
+
+project struct
+    go install github.com/melkeydev/go-blueprint@latest
+    go-blueprint create
+
+    https://docs.go-blueprint.dev/
+
+framework gin
+    cd to project
+    run: go get -u github.com/gin-gonic/gin    --- ได้ไฟล์ go.sum
+
+    package server
+
+    import (
+        "fmt"
+        "net/http"
+        "os"
+        "strconv"
+        "time"
+
+        "github.com/gin-contrib/cors"
+        "github.com/gin-gonic/gin"
+        _ "github.com/joho/godotenv/autoload"
+    )
+
+    func GinConfig() {
+        // สร้าง Gin router instance
+        r := gin.Default()
+
+        r.Use(cors.New(cors.Config{
+            AllowOrigins:     []string{"*"},                                       // ให้ทุก origin สามารถเข้าถึงได้
+            AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},            // กำหนด method ที่อนุญาต
+            AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"}, // กำหนด headers ที่อนุญาต
+            AllowCredentials: true,                                                // ถ้าต้องการอนุญาตให้ส่ง credentials (cookies, HTTP authentication)
+            MaxAge:           12 * time.Hour,                                      // กำหนดเวลา cache ของ CORS preflight response
+        }))
+
+        // กำหนด route หรือ endpoints
+
+        r.GET("/ping", func(c *gin.Context) {  // เพิ่มแค่ตรงนี้เวลามี url ใหม่ (ก็คือไม่ต้องเอาไปผูกกับ handle เหมือนของ http)
+            c.JSON(http.StatusOK, gin.H{   //---- return เป็น json คล้าย respones entity ของ spring boot
+                "message": "pong",
+            })
+        })
+
+        port, _ := strconv.Atoi(os.Getenv("PORT"))
+        server := &http.Server{               // ยังใช้ http เหมือนเดิมถึงแม้ใช้ Gin เพราะ Gin เป็นแค่ library ห่อหุ้ม net/http ใน go อีกที
+            Addr:         fmt.Sprintf("localhost:%d", port), // กำหนดพอร์ตที่ต้องการใช้งาน
+            Handler:      r,                                 // ปกติเอาไว้เช็ค แยก method set return แล้วใน gin ไม่ต้องทำ
+            IdleTimeout:  5 * time.Minute,                   // เหมือน sleep รอถ้าไม่ไดใช้ภายในเวลา
+            ReadTimeout:  10 * time.Second,                  // รอส่วนอ่านเช่น body ใหญ่จัดหรือแนบไฟล์มา
+            WriteTimeout: 10 * time.Second,                  // เวลาที่ server ส่งข้อมูลไปให้ client (server ก็คือโปรแกรม api เรา, client คือคนที่ call มา)
+        }
+
+        // เริ่มเซิร์ฟเวอร์
+        err := server.ListenAndServe()
+        if err != nil {
+            // หากมีข้อผิดพลาดในการเริ่มเซิร์ฟเวอร์
+            panic(err)
+        }
+    }
+    //ปิด log ถ้ารำคาญ gin.SetMode(gin.ReleaseMode)  // ไส่ในโค๊ดตอนเริ่มทำงาน 
+
+load file .env
+    โหลด library ก่อน : go get github.com/joho/godotenv  ----รันใน folder project
+    import
+        _ "github.com/joho/godotenv/autoload"   --การใช้ _ หมายความว่าโปรแกรมจะ ไม่ใช้ฟังก์ชันหรือค่าจากไลบรารีโดยตรง แต่จะให้ไลบรารีนั้นทำงานในเบื้องหลัง
+   
+    เรียกใช้
+    port, _ := strconv.Atoi(os.Getenv("PORT"))  --- เรียกใช้งานผ่าน os.Getenv("PORT")
+    
+database (mysql)
+    1. part install mysql 
+        ลง mysql ใน docker ก่อน
+        $ docker pull mysql:latest
+        $ docker run --name mysql -e MYSQL_ROOT_PASSWORD=rootpassword -d -p 3306:3306 mysql:latest
+
+        connect $ docker exec -it mysql-container mysql -u root -p 
+                จากนั้นไส่ rootpassword
+        
+        create table $ CREATE DATABASE tb_user;    --- drop database $ DROP DATABASE tb_user;
+        
+        เข้า database : $ Use backend
+
+        สร้าง table:
+            CREATE TABLE tb_user (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(100),
+                email VARCHAR(100),
+                age INT
+            );
+
+        insert : $ INSERT INTO tb_user (name, email, age) VALUES ('John Doe', 'johndoe@example.com', 25);
+
+    2. part GO conncect and query
+        ไปที่ path project
+        $ go get -u github.com/go-sql-driver/mysql
+
+        code
+        package database
+
+        import (
+            "database/sql"
+            "fmt"
+            "log"
+
+            _ "github.com/go-sql-driver/mysql"  //---แปะเอง
+        )
+
+        func DatabaseConfig() {
+
+            db, err := sql.Open("mysql", "root:rootpassword@tcp(127.0.0.1:3306)/backend")
+            if err != nil {
+                log.Fatal(err)
+            }
+            defer db.Close()
+
+            err = db.Ping()
+            if err != nil {
+                log.Fatal("error database connection :", err)
+            } else {
+                fmt.Println("database connection successfully")
+            }
+
+            rows, err := db.Query("SELECT name, email FROM tb_user")
+            if err != nil {
+                log.Fatal(err)
+            }
+            defer rows.Close()
+
+            for rows.Next() {
+                var name, email string
+                if err := rows.Scan(&name, &email); err != nil {
+                    log.Fatal(err)
+                }
+                fmt.Printf("name: %s, email: %s\n", name, email)
+            }
+        }
+
+redis
+    install redis to go (ไปรันใน path folder project)
+        go get github.com/go-redis/redis/v8
+
+    ใช้ command 
+        $ docker exec -it redis redis-cli
+
+    ดู key 
+        $ KEYS *  
+
+Grafana
+    แสดงว่าจุดจบจริงๆของ app มันก็อยู่ที่ k8s นี้แหละ เพียงแต่ว่าจะอยู่ใน cloud หรือว่า k8s ที่เป็น local ถูกไหม ไอ้พวก grafana ก็เอามาดูการใช้งาน cpu ram ของแอพ

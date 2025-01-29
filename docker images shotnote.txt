@@ -1,0 +1,34 @@
+การทำ images
+
+1. เปลี่ยนชื่อไฟล์ jar ถ้าอยากเปลี่ยน ด้วย tag final
+
+ึ2. เปลี่ยนค่าพวก host post ในไฟล์ yaml ให้เป็นตัวแปร                  
+                           ตัวแปร port     default port  ก็คือถ้าใน evalament ไม่มีค่ามันจะไปใช้ default ไม่ว่าจะอยู่บน container หรืออยู่ล่าง local
+   bootstrap-servers: ${SECRET_KAFKA_HOST:localhost}:${SECRET_KAFKA_PORT:9092}
+                            ชื่อตัวแปร       defualt เพื่อสะดวกรันบน localhost     
+
+3. clean install ให้ผ่าน
+   
+4. ได้ไฟล์ jar มา   
+
+5. สร้างไฟล์ Dockerfile อ้างอิงไฟล์ jar และคำสั่งรัน
+     FROM openjdk:17-alpine 
+     COPY /target/backend.jar backend.jar
+     ENTRYPOINT ["java", "-jar", "/backend.jar"] 
+
+6. สร้าง images โดยใช้คำสั่ง docker build -t imagename:version . จุดคือบอกว่าทำจากตำแหน่งที่ path อยู่
+   รันคำสั่ง docker build -t myapp:latest . 
+
+ึ7. ได้ images สามารถใช้คำสั่ง docker images ดูได้หรือไปดูที่หน้า docker
+          
+
+8. สร้าง container จาก image (รันตรงใหนก็ได้) เพราะมันสร้าง image ไว้แล้ว
+docker run -d --name myapp -p 8080:8080 -e SECRET_DB_HOST=192.168.1.102 -e SECRET_DB_PORT=5432 -e SECRET_DB_USERNAME=postgres -e SECRET_DB_PASSWORD=syspass -e SECRET_REDIS_HOST=192.168.1.102 -e SECRET_REDIS_PORT=6379 -e SECRET_KAFKA_HOST=192.168.1.102 -e SECRET_KAFKA_PORT=9092 -e SECRET_JWT_SECRET='m#mySecret@2023' myapp:latest
+docker run -d --name email -p 8082:8082 email:latest
+docker run -d --name kafka-consumer-sender -p 8081:8081 -e SECRET_KAFKA_HOST=192.168.1.102 -e SECRET_KAFKA_PORT=9092 kafka-consumer-sender:latest
+docker run -d --name common  common:latest ???
+
+ดู log ดูที่ running ใน status docker
+
+ใช้คำสั่ง docker container ls ดูได้
+หรือใช้ docker container ls -a ดูแม้ว่า container จะหยุดทำงาน

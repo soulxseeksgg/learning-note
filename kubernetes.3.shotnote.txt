@@ -1,0 +1,109 @@
+
+
+0. image
+    docker build -t myapp:latest .   --สร้าง image
+    docker tag myapp:latest localhost:5000/myapp:latest       -- tag image 
+    docker run -d --name registry  -p 5000:5000 --restart always registry:latest    ----รัน registry
+    docker push localhost:5000/myapp 
+    curl -s http://localhost:5000/v2/myapp/tags/list   ---ตรวจสอบ registry ว่าขึ้นไปแล้ว
+
+    
+
+1.Node-Level Commands
+    kubctl get nodes
+    kubectl describe node namename  
+    kubectl top nodes
+
+2. Namespace-Level Commands
+    kubectl create namespace db
+    kubectl get namespace 
+    kubectl describe namespace db
+    kubectl delete namespace db
+    kubectl get all -n db
+
+
+3. Pod-Level Commands
+    kubectl get pods
+    kubectl describe pod pod-name  -- ดู log ตอน start pod
+    kubectl logs pod-name  --คำสั่ง log ของ app
+    kubectl top pods pod-name -n db   --ใช้กับ service ไม่ได้เพราะ service ไม่ได้มีการคำนวนทรัพยากรเป็นเพียงตัวเชื่อม
+    kubectl delete pod myapp-6f668c8c98-vmhsm -n myapp
+    kubectl delete pod pre-install-kibana-kibana-wwp55 -n elk --force --grace-period=0   
+ 
+
+4. Deployment-Level Commands
+    kubectl get deployments
+    kubectl describe deployment deployment-name
+    kubectl scale deployment deployment-name --replicas=number    
+
+5. Service-Level Commands
+    kubectl get services -n db
+    kubectl describe service service-name -n db
+
+ุ6. Secret and ConfigMap-Level Commands
+    kubectl get secrets -n db
+    kubectl describe secret secret-name -n db
+
+7. การจัดการกับ Port Forwarding
+    kubectl port-forward <pod-name> <local-port>:<remote-port>  
+
+8. helm install
+    helm install postgres oci://registry-1.docker.io/bitnamicharts/postgresql --namespace db
+    helm install redis oci://registry-1.docker.io/bitnamicharts/redis --namespace redis --set replica.replicaCount=0
+
+    helm pull oci://registry-1.docker.io/bitnamicharts/kafka --untar
+    เข้าไปในไฟล์ vaules.yaml
+     หา replicaCount ที่อยู่ในภายใต้ tag controller
+        replicaCount: 1
+
+    (เข้าไปใน folder)
+    helm install kafka oci://registry-1.docker.io/bitnamicharts/kafka --values values.yaml --namespace kafka
+    
+
+    helm install kafka . --namespace kafka
+    helm upgrade kafka . --namespace kafka
+    helm uninstall kafka . --namespace kafka
+
+
+7. เอาไฟล์ secret ขึ้น
+kubectl apply -f myapp-secret.yaml //set secret
+
+    echo -n "xxx" | base64
+
+    แก้ไฟล์ secret ของ myapp
+    k edit secret myapp -n myapp -o yaml
+
+    db
+        host คือ servicename.namespace
+        username : postgres
+        password: คำสั่ง k get secret -n db -o yaml 
+        port เอาจากคำสั่ง get all
+
+    kafka
+        host คือ servicename.namespace
+        port เอาจากคำสั่ง get all
+
+    redis
+       host คือ servicename.namespace   
+       password: คำสั่ง k get secret -n redis -o yaml | grep เอา ถ้ามันยาว 
+       port เอาจากคำสั่ง get all 
+    
+
+13
+   kubectl apply -f myapp-spec.yaml
+
+   //log by app
+   kubectl logs -f -l app=myapp -n myapp
+   หรือใช้เหมือนกัน
+   kubectl logs -f pod/myapp-6f668c8c98-rhd2f -n myapp
+
+14.
+    kubectl top pods --all-namespaces 
+
+
+12. forward ไว้ใช้
+                                   (service ตัวแรกที่ไม่ใช้ h1)
+    kubectl port-forward service/postgres-postgresql 5432:5432  -n db
+
+    lsof -i :5432 ---kill process    
+

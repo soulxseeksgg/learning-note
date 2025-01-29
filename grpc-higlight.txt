@@ -1,0 +1,218 @@
+doc: https://yidongnan.github.io/grpc-spring-boot-starter/en/
+
+net.devh
+
+	#server
+		pom server
+				<properties>
+					<java.version>17</java.version>
+					<protobuf.version>3.23.4</protobuf.version>
+					<protobuf-plugin.version>0.6.1</protobuf-plugin.version>
+					<grpc.version>1.69.0</grpc.version>
+					<os-maven-plugin.version>1.7.1</os-maven-plugin.version>
+				</properties>
+
+				<dependency>
+					<groupId>net.devh</groupId>
+					<artifactId>grpc-server-spring-boot-starter</artifactId>
+					<version>3.1.0.RELEASE</version>
+				</dependency>
+				<dependency>
+					<groupId>javax.annotation</groupId>
+					<artifactId>javax.annotation-api</artifactId>
+					<version>1.3.2</version>
+				</dependency>
+
+				<build>
+					<extensions>
+						<extension>
+							<groupId>kr.motd.maven</groupId>
+							<artifactId>os-maven-plugin</artifactId>
+							<version>${os-maven-plugin.version}</version>
+						</extension>
+					</extensions>
+
+					<plugins>
+						<plugin>
+							<groupId>org.springframework.boot</groupId>
+							<artifactId>spring-boot-maven-plugin</artifactId>
+							<configuration>
+								<excludes>
+									<exclude>
+										<groupId>org.projectlombok</groupId>
+										<artifactId>lombok</artifactId>
+									</exclude>
+								</excludes>
+							</configuration>
+						</plugin>
+						<plugin>
+							<groupId>org.xolstice.maven.plugins</groupId>
+							<artifactId>protobuf-maven-plugin</artifactId>
+							<version>${protobuf-plugin.version}</version>
+							<configuration>
+								<protoSourceRoot>${project.basedir}/src/main/java/com/example/training/coupon_service/config/grpc/proto/</protoSourceRoot>
+								<protocArtifact>com.google.protobuf:protoc:${protobuf.version}:exe:${os.detected.classifier}</protocArtifact>
+								<pluginId>grpc-java</pluginId>
+								<pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
+							</configuration>
+							<executions>
+								<execution>
+									<goals>
+										<goal>compile</goal>
+										<goal>compile-custom</goal>
+									</goals>
+								</execution>
+							</executions>
+						</plugin>
+					</plugins>
+					<finalName>couponService</finalName>
+				</build>
+
+            ServerConfig
+				@GrpcService
+                public class CouponServiceControllerGrpcServer extends GrpcCouponServiceGrpc.GrpcCouponServiceImplBase{
+
+                    private final CouponDiscountBusiness couponDiscountBusiness;
+
+                    public CouponServiceControllerGrpcServer(CouponDiscountBusiness couponDiscountBusiness) {
+                        this.couponDiscountBusiness = couponDiscountBusiness;
+                    }
+
+                    @Override
+                    public void couponDiscount(GrpcCouponServiceRequest request, StreamObserver<GrpcCouponServiceResponse> responseObserver) {
+                        CouponDiscountResponse discountResponse= couponDiscountBusiness.validateCouponAndDiscount(request.getCouponCode(),request.getOriginalPrice());
+
+                        GrpcCouponServiceResponse response = GrpcCouponServiceResponse.newBuilder()
+                                .setCouponCode(discountResponse.getCouponCode())
+                                .setTotalPrice(discountResponse.getTotalPrice())
+                                .setStatus(discountResponse.getStatus())
+                                .build();
+                        responseObserver.onNext(response);
+                        responseObserver.onCompleted();
+                    }
+                }
+
+		file proto
+			syntax = "proto3";
+			package net.devh.boot.grpc.example;
+			option java_multiple_files = true;
+
+
+			service GrpcCouponService {
+			rpc CouponDiscount (GrpcCouponServiceRequest) returns (GrpcCouponServiceResponse) {}
+			}
+
+			message GrpcCouponServiceRequest {
+			string couponCode = 1;
+			double originalPrice = 2;
+			}
+
+			message GrpcCouponServiceResponse {
+			string couponCode = 1;
+			double totalPrice = 2;
+			string status = 3;
+			}	
+
+		yaml file
+			grpc:
+			port: 9090
+
+	#client
+		pom client
+			#1
+			<properties>
+				<protobuf.version>3.23.4</protobuf.version>
+				<protobuf-plugin.version>0.6.1</protobuf-plugin.version>
+				<grpc.version>1.69.0</grpc.version>
+				<os-maven-plugin.version>1.7.1</os-maven-plugin.version>
+			</properties>
+
+			#2
+			<dependency>
+				<groupId>net.devh</groupId>
+				<artifactId>grpc-client-spring-boot-starter</artifactId>
+				<version>3.1.0.RELEASE</version>
+			</dependency>
+
+			#3
+			<dependency>
+				<groupId>javax.annotation</groupId>
+				<artifactId>javax.annotation-api</artifactId>
+				<version>1.3.2</version>
+			</dependency>
+
+			<build>
+				<extensions>
+					<extension>
+						<groupId>kr.motd.maven</groupId>
+						<artifactId>os-maven-plugin</artifactId>
+						<version>${os-maven-plugin.version}</version>
+					</extension>
+				</extensions>
+
+				<plugins>
+					<plugin>
+						<groupId>org.springframework.boot</groupId>
+						<artifactId>spring-boot-maven-plugin</artifactId>
+						<configuration>
+							<excludes>
+								<exclude>
+									<groupId>org.projectlombok</groupId>
+									<artifactId>lombok</artifactId>
+								</exclude>
+							</excludes>
+						</configuration>
+					</plugin>
+					<plugin>
+						<groupId>org.xolstice.maven.plugins</groupId>
+						<artifactId>protobuf-maven-plugin</artifactId>
+						<version>${protobuf-plugin.version}</version>
+						<configuration>
+							<protoSourceRoot>${project.basedir}/src/main/java/com/example/training/myApp4/config/grpc/proto/</protoSourceRoot>
+							<protocArtifact>com.google.protobuf:protoc:${protobuf.version}:exe:${os.detected.classifier}</protocArtifact>
+							<pluginId>grpc-java</pluginId>
+							<pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
+						</configuration>
+						<executions>
+							<execution>
+								<goals>
+									<goal>compile</goal>
+									<goal>compile-custom</goal>
+								</goals>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+				<finalName>app</finalName>
+			</build>
+
+	yaml file
+		grpc:
+			client:
+				couponServiceGrpc:
+				address: "static://localhost:9090"
+				negotiationType: "plaintext"
+
+	java client
+		@Service
+		public class CouponServiceGrpc {
+
+			@GrpcClient("couponServiceGrpc") //เชื่อมต่อผ่าน yaml file ไม่ต้องทำเองเหมือน lognet แต่ถ้าไม่ใช้ก็ทำได้เหมือนกัน
+			private GrpcCouponServiceGrpc.GrpcCouponServiceBlockingStub blockingStub;
+
+			public CouponDiscountResponse getCouponDiscount(String couponCode, double originalPrice) {
+
+				GrpcCouponServiceRequest request = GrpcCouponServiceRequest.newBuilder() //เตรียม request ได้เลย
+						.setCouponCode(couponCode)
+						.setOriginalPrice(originalPrice)
+						.build();
+
+				GrpcCouponServiceResponse result = blockingStub.couponDiscount(request); // call 
+
+				CouponDiscountResponse response = new CouponDiscountResponse();
+				response.setCouponCode(result.getCouponCode());
+				response.setTotalPrice(result.getTotalPrice());
+				response.setStatus(result.getStatus());
+				return response;
+			}
+		}	

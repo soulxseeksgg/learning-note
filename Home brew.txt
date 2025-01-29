@@ -1,0 +1,9 @@
+็Home brew
+
+brew cleanup -n  ลบสิ่งที่ cache ไว้
+
+ดูแต่ละตัว size เท่าไหร่
+brew list
+
+ลบ image ที่ไม่ได้ใช้
+docker image prune

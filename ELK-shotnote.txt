@@ -1,0 +1,361 @@
+elasticsearch
+    1. pull images มาก่อนในเว็บ elastic
+    2. สร้างไฟล์ docker compose
+        services:
+            elasticsearch:
+                container_name: elasticserach
+                image: docker.elastic.co/elasticsearch/elasticsearch:sha256-fff57a996ea17bad3163108f6f3221c7f5a43cac20bffea5082c49eb4d7950e5
+                environment:
+                - discovery.type=single-node
+                - xpack.security.enabled=false
+                - node.store.allow_mmap=false 
+
+                ports:
+                - 9200:9200
+                volumes:
+                - ./data:/usr/share/elasticsearch/data   //map volume remote ขึ้นไปเอา path มา
+                networks:
+                - logstash-network  
+        
+        networks:  //อย่าลืมสร้าง network ให้มันด้วย ต้องสร้างมันไม่ได้ auto สร้างให้เพียงเอาไปแปะจากข้างบน
+            logstash-network:        
+
+    3. docker compose up -d            
+    4. เข้า post man ไป call ดู GET localhost:9200/_cat/indices?h=index
+        คำสั่ง query ต่างๆไปดูใน kibana ใช้เหมือนกัน elasticsearch มันแค่ที่เก็บ
+
+kibana
+    1. pull image มาจากเว็บ elastic
+    2. สร้างไฟล์​ docker compose
+        services:
+          kibana:
+            container_name: kibana
+            image: docker.elastic.co/kibana/kibana:sha256-ffbd605e4891c98d502bd78f474bbe424503cf81496a1bb2a71b58bc8f7742c1
+            environment:
+            - elasticsearch.hosts:=http://localhost:9200  //ชี้ไปที่ elasticsearch
+            - MONITORING_UI_ENABLED=false      
+            - XPACK_REPORTING_ENABLED=false    
+            - XPACK_SECURITY_ENABLED=false     
+            - XPACK_GRAPH_ENABLED=false        
+            ports:
+            - 5601:5601  //port ของตัวเอง
+            networks:
+            - logstash-network 
+
+    3 คำสั่ง
+        (cmd+Enter = run)
+        3.1 search เฉพาะ index ของเรา ที่เราสร้างเท่านั้น ว่ามีกี่อัน ไม่รวมเนื้อหาข้างในนะ โชว์แค่ชื่อ index
+            GET _cat/indices?h=index
+
+        3.2 create index
+            PUT my_index
+
+        3.3 insert data to index
+            POST my_index/_doc
+            {
+                "name":"toon"
+                ,"user": "toon"
+            }    
+
+        3.4 update with value หรือ เพิ่ม column with value
+            POST my_index/_update/<Id>
+            {
+                "doc": {
+                    "name":"toon2" // ถ้าไส่ column ที่ยังไม่มันจะกลายเป็นเพิ่มคอลัมป์ใหม่
+                }  
+            }
+
+        3.5 ลบ column ออก
+            POST my_index/_update/<Id>
+            {
+               "script":{
+                    "source" : "ctx._source.remove('<column name>')"
+               }
+            }  
+
+        3.6 delete index
+            DELETE my_index      //เช็คว่าไม่มี index แล้ว: HEAD my_index   ลบแบบไส่ * ก็ได้ เช่น  DELETE toon*-20250129
+            
+
+        3.7 delete by <Id>
+            DELETE my_index/_doc/<Id>    
+        
+        3.9 query ดุข้อมูล
+            GET my_index/_search   
+
+        3.10 query แบบ like
+            GET my_index/_search
+            {
+                "query":{
+                    "wildcard":{
+                        "<column>":{
+                            "value": "t%" //ขึ้นต้นด้วย t
+                        }
+                    }
+                }
+            }
+
+        3.11 query แบบ and
+            GET my_index/_search
+            {
+                "query":{
+                    "bool":{  //บอกว่าจะเริ่มทำคำสั่งแบบเงื่อนไข
+                        "must":[  // ( ภายใต้ must คือ and ), (ภายใต้ should คือ OR), (ภายใต้ must_not คือ not in)
+                            "match":{  //ตรงนี้ใช้ terms ก็ได้มันจะเป็น in ไม่ match คำเป๊ะ
+                                "<column name>": "toon" //ต้อง column นี้้ต้องมีชื่อว่า toon
+                            },
+                            "wildcard":{
+                                "<column name>" : "%n" // และต้องลงท้ายด้วย n ด้วย ทำใน must คือ and หมด 
+                            }
+                        ]
+
+                    }
+                }
+            } 
+
+        3.12 query แบบ Regular Ex
+            GET my_index/_search
+            {
+                "query":{
+                    "regex":{
+                        "<column>": "<pattern>" //มันใช้ได้ไม่เต็มรูปแบบไม่รู้ทำไม
+                    }
+                }
+            } 
+
+        3.13 search แบบไม่รู้อะไรเลย หาแม่งหมดใน index
+            GET my_index/_search?q="<keyword>"          
+
+
+logstash
+    1. remote ไปดุ folder บน container
+
+    2. สร้าง folder ตามบน dev 
+        config
+            logstash.yml
+                //เนื้อหา
+                config.reload.automatic: true //reload แค่ไส่ตรงนี้ แล้ว volume ไฟล์ให้มันเท่ากัน ให้มันชี้มาใช้ที่ local:container
+                config.reload.interval: 3s
+            pipelines.yml
+                //เนื้อไฟล์
+                - pipeline.id: basic
+                  path.config: "${PWD}/pipeline/basic-logstash.conf"
+
+                - pipeline.id: apache
+                path.config: "${PWD}/pipeline/apache-logstash.conf"
+
+        data //ไม่ต้องไส่อะไร
+
+        pipeline (เชื่อมกับไฟล์ config/pipelies.yml มีสองอันก็ต้องสร้างสองอันเท่ากัน)
+            basic-logstash.conf
+            apache-logstash.conf
+                input {
+                    http {
+                        port => 5044 //port ต้องตรงกับ publis ไว้ในไฟล์ docker compose
+                        type => "access" //เอาไปใช้ในการตั้งชื่อไฟล์ข้างล่าง
+                    }
+
+                    file {
+                        path => ["${PWD}/input/apache-*.log"]  //กำหนด input ไฟล์แบบ windcard
+                        type => "file"
+                    }
+
+                }
+
+                filter {
+
+                    if [url][path] == "/error" {   //การใช้ if
+                        mutate {
+                            replace => {  //repece ค่าตัวแปร type ทับ
+                                "type" => "error" 
+                            }
+                        }
+                    }else {
+
+
+
+                        grok { //plugin filter
+
+                            pattern_definitions => {  //สร้าง pattern เอง
+                                "mynumber" => "(?:[+-]?(?:[0-9]+))"
+                            }
+
+                            patterns_dir => ["${PWD}/pattern"] //อ้างอิง pattern จาก folder (สร้างเองแต่เก็บไว้ใน folder)
+
+                            match => {
+                                "message" => "%{mynumber2:num2}" //เอาไปใช้
+                            }
+
+                            match => {
+                                #"message" => '%{IP:ip_address} %{USER:identity} %{USER:user_id} \[%{HTTPDATE:timestamp}\] "%{WORD:http_method} %{URIPATHPARAM:uri_path} HTTP/%{NUMBER:http_version:float}'
+                                "message" => "%{HTTPD_COMMONLOG}"  //เรียกใช้ pattern ของ httpd ที่เขาทำไว้แล้วใน legacy > httpd (path git : https://github.com/logstash-plugins/logstash-patterns-core/tree/main/patterns/legacy )
+                            }
+
+                        }
+
+                        date {  //ทับ timestamp ไปที่ตัวแปร @timestamp เพื่อเอาค่าไปใช้ในชื่อไฟล์อีกที (ใน output)
+                            match => ["timestamp","dd/MMM/yyyy:HH:mm:ss Z"]
+                        }
+
+                        if "_grokparsefailure" in [tags] { //เช็คอันนี้ _grokparsefailure ถ้ามีมา ไม่ให้รับ input
+                            drop { }
+                        }
+
+                        useragent {
+                            source => "agent"
+                            target => "ua"
+                        }
+                        
+                        mutate {
+                            convert => {
+                                "@version" => "integer"  //convert ค่าโดย mutate (อยู่ภายใต้ filter plugin > mutate)
+                            }
+
+                            gsub => [
+                                "[url][original]","123","xxx" //ตัด อยู่ภายใต้ mutate อีกที ไอ้ตัว gsub 
+                            ]
+
+                            remove_field => ["timestamp"] // remove ก็เหมือนกัน
+                        }
+                    }    
+
+
+                }
+
+                output {
+                    stdout {
+                    }
+
+                    file {
+                        path => ["${PWD}/output/apache-%{type}-%{+yyyyMMdd}"] //ตั้งชื่อไฟล์ output
+                    }
+
+                    elasticsearch {
+                        hosts => "http://elasticsearch:9200"   //กำหนดปลายทางให้ชี้ไปที่ elasticsearch
+                        index => "toon-%{type}-%{+yyyyMMdd}"   //พร้อมตั้งชื่อ index
+                    }
+                }
+
+
+    3. สร้าง folder สำหรับ input output (สำหรับ file อ่านแล้วเก็บแบบไฟล์)
+        input
+            apache-20241215.log
+        output  
+            apache-access-20170920
+            apache-error-20170920
+                    ^
+                เปลี่ยนตาม type
+
+        resource //เอาไว้เก็บตัวอย่าง grok pattern ในนี้จะมีรูปแบบเก็บตัวแปรและ regex ที่ทำไว้ เอกสารอยู่ใน elastic co > platform > logstash > filter plugin เลือกเอามีทั้ง grok plugin หลายๆอัน ลองดูในนั้น
+            grok-pattern
+                USERNAME [a-zA-Z0-9._-]+  //มันจะเก็บอะไรแบบนี้
+                USER %{USERNAME}
+                EMAILLOCALPART [a-zA-Z][a-zA-Z0-9_.+-=:]+
+                EMAILADDRESS %{EMAILLOCALPART}@%{HOSTNAME}
+                INT (?:[+-]?(?:[0-9]+))
+                BASE10NUM (?<![0-9.+-])(?>[+-]?(?:(?:[0-9]+(?:\.[0-9]+)?)|(?:\.[0-9]+)))
+                NUMBER (?:%{BASE10NUM})
+
+        pattern //เอาไว้เก็บ pattern ของตัวเอง เวลาใช้ก็ใช้   
+            patterns_dir => ["${PWD}/pattern"] //อ้างไปเลย
+
+            match => {
+                "message" => "%{mynumber2:num2}" 
+            } 
+
+
+    run
+        docker compose 
+            ไฟล์ต่างๆต้องอยู่ใน folder ELK
+            services:
+                elasticsearch:
+                    container_name: elasticserach
+                    image: docker.elastic.co/elasticsearch/elasticsearch:sha256-fff57a996ea17bad3163108f6f3221c7f5a43cac20bffea5082c49eb4d7950e5
+                    environment:
+                    - discovery.type=single-node
+                    - xpack.security.enabled=false
+                    - node.store.allow_mmap=false 
+
+                    ports:
+                    - 9200:9200
+                    volumes:
+                    - ./data:/usr/share/elasticsearch/data
+                    networks:
+                    - logstash-network   
+
+                logstash:
+                    container_name: logstash
+                    image: docker.elastic.co/logstash/logstash:8.16.1
+                    environment:
+                    - LS_JAVA_OPTS=-Xms256m -Xmx256m
+                    - xpack.monitoring.enabled=false
+                    - pipeline.workers=1
+                    - pipeline.batch.size=125
+                    ports:
+                    - 5044:5044
+                    volumes:
+                    - ./logstash/data:/usr/share/logstash/data
+                    - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml
+                    - ./logstash/config/pipelines.yml:/usr/share/logstash/config/pipelines.yml
+                    - ./logstash/pipeline/:/usr/share/logstash/pipeline/
+                    - ./logstash/input/:/usr/share/logstash/input/
+                    - ./logstash/output/:/usr/share/logstash/output/
+                    - ./logstash/pattern/:/usr/share/logstash/pattern/
+                
+                    networks:
+                    - logstash-network
+
+                # kibana:
+                #   container_name: kibana
+                #   image: docker.elastic.co/kibana/kibana:sha256-ffbd605e4891c98d502bd78f474bbe424503cf81496a1bb2a71b58bc8f7742c1
+                #   environment:
+                #     - elasticsearch.hosts:=http://localhost:9200
+                #     - MONITORING_UI_ENABLED=false      
+                #     - XPACK_REPORTING_ENABLED=false    
+                #     - XPACK_SECURITY_ENABLED=false     
+                #     - XPACK_GRAPH_ENABLED=false        
+                #   ports:
+                #     - 5601:5601
+                #   networks:
+                #     - logstash-network  
+                
+                networks:
+                logstash-network:
+
+        แบบ dokcer run โดยใช้ไฟล์ .sh
+            docker container run -it --rm \
+            --name logstash \
+            --cpus="0.5" \
+            --memory="512m" \
+            --volume="$(PWD)/data:/usr/share/logstash/data" \
+            --volume="$(PWD)/config/logstash.yml:/usr/share/logstash/config/logstash.yml" \
+            --volume="$(PWD)/config/pipelines.yml:/usr/share/logstash/config/pipelines.yml" \
+            --volume="$(PWD)/pipeline/:/usr/share/logstash/pipeline/" \
+            --volume="$(PWD)/input/:/usr/share/logstash/input/" \
+            --volume="$(PWD)/output/:/usr/share/logstash/output/" \
+            --volume="$(PWD)/pattern/:/usr/share/logstash/pattern/" \
+            -e "LS_JAVA_OPTS=-Xms256m -Xmx256m" \
+            -e "xpack.monitoring.enabled=false" \
+            -e "pipeline.workers=1" \
+            -e "pipeline.batch.size=125" \
+            --publish="8080:8080" \
+            --publish="8081:8081" \
+            --network logstash-network \
+            docker.elastic.co/logstash/logstash:8.16.1
+
+
+    test/call/query
+
+        GET localhost:9200/_cat/indices?v&h=index  //ดูก่อนว่ามันต่อ elasticsearch ได้ไหม ทำงานปกติไหม
+
+        call insert (ผ่าน post man ยิงเข้าไปใน logstash ที่อยู่บน docker)
+            POST localhost:5044
+            type text : 184.252.108.229 - bond [20/Sep/2017:13:22:22 +0200] "GET /products/view/123 HTTP/1.1" 200 12798 "http://codebangkok.com/products" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.90 Safari/537.36"
+
+        query (elasticsearch ว่าข้อมูลมารึยังไง)
+            GET localhost:9200/_cat/indices?v&h=index //มันจะโชว์ index ใหม่ ถ้ามี
+
+
+    แบบ curl  (ต้องมี "" ครอบ)
+        curl -X GET "localhost:9200/_cat/indices?h=index"
+

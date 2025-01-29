@@ -1,0 +1,20 @@
+first read แล้ว highligth อันนี้สำคัญ อันนี้สำคัญ   ---ไม่ได้กะว่าจะจำได้ นอกจากจะจำยากแล้ว มันยังมีความสามารถมาปนกันเองได้ด้วย
+    highligth read   -- อ่านที่แค่ highligth ยังจำไม่ได้ 
+shotnote form highligth -- ทำสรุปจาก highligt ข้อเสียปล่อยไว้ 3-4 สัปดาห์มันจะเริ่มจาง เริ่มจาง ยิ่งปล่อยไว้นานเท่าไหร่ยิ่งกลับมาทวนยากแค่นั้น
+    shotnote read --อ่านที่สรุปมา เริ่มจำตรงนี้แต่คนชอบไม่อยากอื่นเบื่อ 3 4 สัปดาปห์เริ่มเลือนเหมือนหน้าบ้าน
+baerhand --จดออกมาแบบไม่ดูอะไรเลย เหมือนข้างล่าง
+
+1.clean install maven ให้เรียบร้อย
+2. docker build -t myapp: latest .
+3. docker tag myapp:latest localhost:5000/myapp:latest
+4. docker push localhost:5000/myapp:latest
+5. kubectl create namespace myapp
+6. kubectl apply -f secret.yaml
+7. get config to secret
+    host = servicename.namespace
+    pass เอาจาก k get secret -n db -o yaml
+8. kubectl apply -f spect.yaml
+9. kubectl logs -f -l pods/podsname -n myapp | k logs -l app=myapp -n myapp -f 
+10. kubectl port-forward service/servicename port:port -n myapp
+
+

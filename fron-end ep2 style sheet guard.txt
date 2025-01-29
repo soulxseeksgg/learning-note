@@ -1,0 +1,348 @@
+bootstrap5 เป็นต้นไป เป็น javascript เพียวๆ ไม่มี jquery ผสม ลด dependency ไปได้เยอะ
+bootstrap พัฒนาจากทีมของ twitter ชื่อเดิมคือ twitter blueprint และเปิดให้เป็น Open source ชื่อ BootStrap Framework
+Anguar project > Node > npm > ตอนลง bootstrap เลยต้องใช้ npm
+1. install Bootstrap เข้าเว็บ bootstrap เราจะเจอคำสั่งติดตั้ง
+   $ npm i bootstrap@5.3.3
+
+   ถ้าเกิดช่องโหว่ ตัวแดงตอนติดตั้งให้ npm audit fix เพื่ออัพเดทช่องโหว่ และเช็คดูอีกทีว่ามันหายยังด้วย npm audit
+   
+2. ติดตั้ง style ในโปรเจคของเรา
+   ไป node_modules > bootstrap > scss > bootstrap.scss คลิ๊กขวา Copy Relative Pathเอาไปไส่ใน Angular.json 
+   ค้นหาคำว่า "styles" ในไฟล์ มีทั้งสองที่ เพิ่มที่ก้อปมาไส่ต่อจากของเดิม
+   ลองรัน ng serve --open ดู มันจะเห็นการเปลี่ยนแปลงของ button และช่อง input ดูดีขึ้น
+
+   2.1 ลองก้อปปี้ style มาใช้ดู เช่นเอา button มาใช้
+        <button type="button" class="btn btn-success">Success</button>  
+
+        ใช้เฉพาะ class ก็ได้ได้ จะได้ style ไป
+
+3. ทำ rounting page
+   
+   3.1 สร้างหน้าใหม่ขึ้นมาก่อน     
+     ng generate component components/login
+     ng generate component components/register
+
+   3.2 set routing 
+   ไปที่ไฟล์ src > app > app-routing.module.ts
+
+   const routes: Routes = [
+        {
+            path: 'login'  <<-- เพิ่ม url
+            ,component: LoginComponent  <<--- เพิ่ม component ที่จะใช้
+        }
+    ];
+
+  ลองรันดูว่าทำงานได้ไหม ng serve --open ได้!
+
+  4. เก็บ cookie
+
+     4.1 ติดตั้ง cookie service
+     $ npm install ngx-cookie-service --save
+       
+       ในไฟล์ app.module.ts
+       import {CookieService} from 'ngx-cookie-service';
+
+       providers: [CookieService],
+  
+     4.2 สร้าง service ใหม่ของ cookie service
+       $ ng generate service services/app-cookie
+      
+     4.4 inject constructor ngx Cookie Service มาเพื่อ set (ในไฟล์ service ของ app-cookie)
+        constructor(private cookieSerive: CookieService) { }
+
+     4.5 สร้าง function ไว้เพื่อ get set check token
+          export class AppCookieService {
+
+            constructor(private cookieSerive: CookieService) { }
+
+            setAccessToken(token:string) : void {
+                this.cookieSerive.set('ACCESS_TOKEN',token);
+            }
+
+            getAcessToken() : string {
+                return this.cookieSerive.get('ACCESS_TOKEN');
+            }
+
+            hasAccessToken() : boolean {
+                return this.cookieSerive.check('ACCESS_TOKEN');
+            }
+          }
+
+ 5. ใช้ guard
+    search google 'angular routing guard' เลือก 'CanActivate'
+    
+    5.1 สร้าง serive ใหม่เอาไว้เก็บ service guard
+        $ ng generate service services/auth-guard
+             
+    5.2 imprement CanActivate ที่ class  (มันจะ override function ของ canactive มาให้)
+
+    5.3 injection service ของ AppCookieService เข้ามาใน class (service ที่เราสร้างสำหรับทำ cookie)
+    5.4 เพิ่มการเช็ค cookie ถ้าไม่มีให้การ์ดเชิญไปทางเข้า
+
+        export class AuthGuardService implements CanActivate {  <<<--- 1 imprement CanActivate
+
+            constructor(
+                private appCookieService: AppCookieService <<-- 2 inject AppCookieSerive เพื่อใช้ function hasCookie ว่ายังมีไหม
+                ,private router: Router  //import ของ import { Router } from '@angular/router'; นะ
+            ) { }
+
+            canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): boolean | UrlTree | Observable<boolean | UrlTree> | Promise<boolean | UrlTree> {
+            
+                if(this.appCookieService.hasAccessToken()){ <<--- 3 call function hasCookie ถ้ามี cookie ให้ทำงานต่อ
+                     return true;
+                } 
+            
+                this.router.navigate(['/login']); <--- ถ้าไม่มี ให้ naviage ไปที่หน้า login
+                return false;
+            }
+
+        } <--- 5 ได้การ์ดมาแล้ว เหลือแค่เอาไปยืนคุมที่ประตู ประตูเราอยู่ใหน อยู่ที่ app routing modules
+
+
+ุ6. เอา guard ไปใช้
+   ในไฟล์ app.routing.module.ts
+    ,{
+        path: 'chat'
+        ,component: ChatComponent
+        ,canActivate: [AuthGuardService] <<--- ไส่ตรงนี้
+    }
+    
+     ลองรันดู ถ้ามันทำงานถูกต้อง ถ้าเราเข้าหน้า chat มันต้องไล่ให้ไปหน้า login เพราะยังไม่มี cookie  
+     จบการใช้ gaurd  
+           
+ 
+*note* เพิ่มส่วน html ในไฟล์ login.component.html และตั้งชื่อ formGroup เอาไว้เรียกตัวแปร 
+                    
+    ในไฟล์ html                                
+    <form [formGroup]="loginFormGroup" (ngSubmit)="onSubmit()">   <<<--1. [formGroup] = "formGroup ที่ตั้งไว้", ใช้ function ใช้ function submit บน form
+        <input type="text" formControlName="email">   <<--2. formControlName ที่ตั้งไว้ในหน้า ts
+        <input type="password" formControlName="password">
+        <button type="submit" class="btn btn-primary" [disabled]="loginFormGroup.invalid">Submit</button> 
+    </form>                                              ^
+                                                       ถ้า form ยังกรอกไม่ครบ ให้ disable ปุ่ม
+
+    ไฟล์ login.component.ts
+    export class LoginComponent { 
+
+        loginFormGroup: FormGroup = new FormGroup({  <<--- 1 ทำ formGroup  syntax nameFormGroup: FormGroup = new FromGroup({
+            email: new FormGroup('',Validators.required)                            inputName: new FormGroup('',Validators,required) << -- มี component อะไรบ้างให้ บอกว่าต้องกรอกด้วย
+            ,password: new FormGroup('',Validators.required)                      })     
+        });
+
+        onSubmit(): void{ <<-- เชื่อมต่อกับหน้า ts
+            let email = this.loginFormGroup.controls.email.value();
+        }
+    }
+    
+  *note* อธิบาย html 
+          (ทำเป็น grid) (ห่างบน) (ยาว) (ห่างจากขอบแบบ auto)
+   <form class="d-grid gap-1 col-6 mx-auto">
+        <h2 class="text-center">login</h2>  <<--- เรียกใช้ class text ให้ center
+        <div class="mb-1">                  <<--- mb-1 = margin ช่องว่าง
+            <label for="login" class="form-label">Email address</label>
+            <input type="email" class="form-control" placeholder="name@example.com">
+        </div>
+    </form>
+
+   *note* เปลี่ยน tab เป็น enter ใน vscode
+   preferance > setting > text editer > suggestion > Accept Suggestion on Enter > on /
+
+   
+ *note* . ทำ service ให้ call api ไปหลังบ้านได้
+    1 สร้าง service มา 1 อัน
+       $ ng generate service services/user  
+
+    2 injection httpClient มาเพื่อที่จะใช้ call ไป
+        constructor(private httpClient: HttpClient) { }
+
+    3 สร้าง function รับ email, password: return เป็น I-login-message
+
+        ตัวอย่างโค๊ด
+        constructor(private httpClient: HttpClient) { }
+
+        login(email: string, password: string): Observable<ILoginResponse>{
+            let url = "http://localhost:8080/user/login";
+            let body = {
+            email: email 
+            ,password: password
+            }
+            return this.httpClient.post<ILoginResponse>(url,body);
+        } 
+
+        *note* Observable อิมพอร์ตจาก import { Observable } from 'rxjs'; ไม่งั้นแดง แล้วมันไม่ขึ้นเตือนด้วยนะ
+
+     4. เรียกใช้ service user ในหน้าของ login เพื่อจะเอาไปยิงเมื่อกดปุ่ม 
+
+        4.1 inejct user service มาก่อน
+            constructor(private userService: UserService){}
+        4.2 เรียก ส่งตัวแปรเข้าไป 2 ตัว และให้ subscribe set การรับ return
+          
+          ตัวอย่างโค๊ด
+          constructor(private userService: UserService){}
+
+          onSubmit(){   
+            let email = loginFormGroup.controls.email.value();
+            let password = this.loginFormGroup.controls.password.vaule();
+
+            this.userService.login(email,password).subscribe((response)=>{
+                console.log(response);
+            },(error)=>{
+                console.log(error);
+            })    
+
+          }
+     ลองเทสยิงดูผ่านหน้าบ้านดู
+
+ึ7. set cookie ให้หน้า login
+     7.1 เพิ่ม constructor
+     constructor(
+        private appCookieService: AppCookieSerive
+     ){}
+
+     7.2 call set access token
+     this.appCookieService.setAcessToken(email,password);
+
+     7.3 ถ้า login ผ่าน redirect ไปที่หน้าที่อยากให้ไป
+     constructor(
+        private router: Router
+     ){}
+                                                รูปแบบ (['/xxpage'])
+     this.router.navigate(['/chat']); <<--- navigate(['/page'])
+
+*note* การ set ค่าที่อาจเป็น null ใน interface 
+export interface ILoginResponse{
+    token?: string; <<-- ถ้าหาก login ผ่าน ยังไงก็ไม่ null เช็คผ่านการ return ของ function subscire แล้ว เอา ? ออกได้ ไม่เป็น nul
+}
+
+*note* Router ต้อง import { Router } from '@angular/router'; 
+ถ้าเป็น from 'express' แม่งไม่ขึ้น ใช้ .navigate ไม่ได้
+
+*note* get message error ที่ทำไว้หลังบ้านออกมา ถ้า error เอามา map
+                    (ตัวแปรตั้งไว้ในหลังบ้าน)
+    (err)={                 V
+        alert(err.error.errorMessage)
+    }
+
+*note* ดู cookie หลังจาก login แล้วจะได้คุ๊กกี้มา (firefox)
+    คลิ๊กขวา > inspect > storage > cookie จะชื่อ ACCESS_TOKEN
+
+8. เพิ่ม header โดยใช้ Navbar
+    8.1 ทำ header ใหม่ขึ้นมาอันหนึง โดยใช้คำสั่ง
+      $ ng generate component components/header
+   
+    google 'bootstrap' เลือก navBar  
+
+    *note* me-0 m= margin, e = end, s = start(left) , 0 = value
+
+ 9. ทำ sigle page appliacation โดยใช้ rounterLink
+
+     9.1 โค๊ด
+        <nav class="navbar navbar-expand-lg navbar-light bg-light"> 
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+            <ul class="navbar-nav">
+                <li class="nav-item active">
+                <a class="nav-link" [routerLink]="['/home']" [routerLinkActive]="'active'">Home</a>
+                </li>
+                <li class="nav-item">
+                <a class="nav-link" [routerLink]="['/dashboard']" [routerLinkActive]="'active'">Dashboard</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" [routerLink]="['/chat']" [routerLinkActive]="'active'">Chat</a>
+                </li>
+            </ul>
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                <a class="nav-link me-0" (click)="doLogout()">logout</a>
+                </li>
+            </ul>
+            </div>
+        </nav>
+     
+     9.2 อธิบาย รูปแบบใช้ใน tag a <a [rounterLink]=['/path ที่ต้องการจะไป']   <<<-- มันไปเลย โดยไม่ refesh
+         *note* <a [routerLinkActive]="'active'" <<--- ทำให้ higthlight tab ที่เราคลิ๊กอยู่ ใช้ใน tag <a>
+
+        *note* ทำ tag <div> ไส่ class = "container"  เพื่อแยก header กับเนื้อหาออกจากกัน
+        ไม่รู้ทำได้ไหมข้างบนติดไว้ก่อน แต่เอา tag selector ไปแปะไว้ในไฟล์ app.routing.moules.ts header ไม่มีวันหาย
+        แบบนี้
+        <app-header/>
+        <router-outlet />
+
+ 10. logout และ delete cookie
+     ไฟล์ html
+     <a (click)="doLogout()"     <<-- 1 
+
+     ไฟล์ ts ของ header
+      constructor(
+        private appCookieService: AppCookieServe <<-- inject class จัดการ Cookie มา
+        private router: Router <<--- เอาไว้ link ไปหน้าอื่น
+        ){}  
+       
+      doLogout(){   <<---2
+            this.appCookieService.deleteAccessToken();
+            this.router.navigate([]'/login']);
+      }
+
+ 11. set emtry part
+     set ในไฟล์ routing.module
+     path: '' <<---- ไส่ไม่มี path มันจะเป็น localhost:4200
+     ,component: DashBoardComponent
+
+
+*note* ตอน call API ตรง body ข้างหน้าต้องเหมือนกับหลังบ้าน
+let body = {
+      email: email
+      ,userName: username
+      ,password: password
+    }
+
+12. ทำให้ chat API ไม่ public ที่หลังบ้าน
+    ทำให้หน้าบ้านต้องแนบ token มา ก่อนจะเข้าได้
+
+    12.1 เอา url "/chat/**" เป็น API ที่หน้าบ้านต้อง call เข้ามาออก ใน security config
+
+13. ใช้ authen interceptor ที่หน้าบ้าน
+    13.1 สร้าง service auth-interceptor มา
+        $ ng generate service services/auth-interceptor
+
+    13.2 imprement HttpInterceptor ใน class ที่พึ่งสร้างมา
+
+    13.3  constructor appCookie Service มา เอามาเช็คว่ามี token ไหม
+         ถ้ามีให้มี Bearer Token แปะไปใน Header ด้วย
+
+        constructor(private appCookieService: AppCookieService){}
+
+        //ทำใน function intercept
+        let token = this.appCookieService.hasAccessToken();
+        if(token){
+            //modify header
+            let modified = req.clone(
+                {
+                headers: req.headers.set('Authorization',`Bearer ${token}`)
+                }
+            );
+            return next.handle(modified);
+        }
+        return next.handle(req);
+
+        *note* มีตัวแปร 2 ตัว ให้ใช้ใน methode หลัง imprement HttpInterCepter มาแล้วคือ req กับ next
+
+    13.4 เอา authen interceptor ไปแปะไว้ใน app.module.ts ในส่วนของ providers เพื่อเช็คว่าทุก request ของ httpClient นะ ให้มาเช็ค interceptor ของฉันด้วย
+        ไฟล์ module.ts
+
+        providers: [
+            CookieService
+            ,{provide: HTTP_INTERCEPTORS   <<--- 1
+              ,useClass: AuthInterCeptorService  <<--2 class interceptor ของเรา
+              ,multi: true  <<---3 ใช้ทุกที่เลย
+             }
+        ]   
+
+    13.5 ทดสอบ ถ้าไส่แล้ว ผม login แล้ว ผมควรจะ chat ได้เหมือนเดิม ถึงแม้จะเอา url ใน security ออกแล้ว
+         คลิ๊กขวา inspect > network > XHR                                                   
+
+    *note* security ฝั่งหน้าบ้านจะมี
+       ส่วนหน้าที่เข้าได้ เข้าไม่ได้ เมื่อยังไม่ได้ login 
+       ส่วนของ link ไม่ได้เป็น public ต้องแนบ Token มาด้วย ตอนเข้าหน้า
+
+    14. แก้ set cors ใน security ของหน้าบ้านใหม่ ไม่ทำเป็น Bean แล้ว
+        

@@ -1,0 +1,107 @@
+
+แสดงว่า 
+   docker run -d กับ 
+   docker compose up -d 
+มันก็คือคำสั่ง run container เหมือนกันแต่รันแบบไฟล์กับรันแบบคำสั่ง ai บอกว่าถูกต้อง
+
+Docker compose stack คือการรวมโปรแกรมหลายๆโปรแกรมรวมกัน รวมใน stack เดียว คล้ายๆ แอพ backend ของเราที่
+มีหลายๆโปรแกรม เช่น kafka redis postgres 
+
+Dockerfile นี้สัมพันธ์กับการทำ images
+
+1. เปลี่ยนชื่อไฟล์ jar ถ้าอยากเปลี่ยน ด้วย tag final
+
+ึ2. เปลี่ยนค่าพวก host post ในไฟล์ yaml ให้เป็นตัวแปร                  
+                           ตัวแปร port     default port  ก็คือถ้าใน evalament ไม่มีค่ามันจะไปใช้ default ไม่ว่าจะอยู่บน container หรืออยู่ล่าง local
+   bootstrap-servers: ${SECRET_KAFKA_HOST:localhost}:${SECRET_KAFKA_PORT:9092}
+                            ชื่อตัวแปร       defualt เพื่อสะดวกรันบน localhost     
+
+3. clean install ให้ผ่าน
+    skip test ไปก่อนได้
+
+
+4. สร้างไฟล์ Dockerfile ในระดับข้างนอก (ทำของใครของมันแต่ละโปรเจค)
+     FROM openjdk:17-alpine 
+     COPY /target/backend.jar backend.jar
+     ENTRYPOINT ["java", "-jar", "/backend.jar"] 
+
+5. สร้าง images
+   รันคำสั่ง docker build -t myapp:latest . 
+   เพื่อสร้าง image  (. บอก Docker ว่าให้เริ่มหาไฟล์จากตำแหน่งปัจุบัน)
+   การใช้ tag ก็เหมือนการติดฉลากสินค้า ให้ดูง่ายๆ ว่าชิ้นนี้ของอะไร ชิ้นนี้ของ prod นะ ชิ้นนี้ของ dev นี้นะ ให้ดูง่ายๆผ่านจากข้างนอกเลย ไม่ต้องลงไปดูชื่อไฟล์ให้ยุ่งยาก
+   รูปแบบที่นิยมใช้ คือ -t ชื่อแอพ:ตามด้วย version หรือ environment เช่น myapp:1.0.0 , myapp:dev, myapp:prod  ใช้แต่ตัวพิมพ์เล็กนะ
+
+6. พอสั่ง build เสร็จได้ image มา ไปดูได้ใน docker ใน tab image มันจะขึ้นมา  (ปัจจุบัน การสร้าง image นิยมใช้ docker นี้แหละสร้างดีที่สุดแล้ว)  
+    ต้องไปไปไล่สร้างไฟล์ Dockerfile และไส่ตัวแปร FROM COPY ENTRYPOINT อ้างไฟล์ jar ให้ถูกตำแหน่ง แล้วใช้คำสั่งสร้าง build image แยกไปแต่ละ folder                
+
+7. พิมพ์ command $: docker images เพื่อดูว่ามี images อะไรบ้างในเครื่อง  
+
+kafka-consumer-sender   latest    6c67c6c37a90   11 hours ago    469MB
+email                   latest    91c8380d3d9b   11 hours ago    349MB
+common                  latest    f01191c2a393   14 hours ago    326MB
+myapp                   latest    c47fcc653889   16 hours ago    500MB
+
+   docker run -d --name kafka-consumer-sender -e SECRET_KAFKA_HOST=localhost -e SECRET_KAFKA_PORT=9092 kafka-consumer-sender:latest
+   
+
+8. สร้าง container โดยต้องมีการแปะตัวแปรการเข้ารหัสไปด้วย 
+   docker run -d 
+         --name myapp 
+         -p 8080:8080 
+              -e SECRET_DB_HOST=localhost
+              -e SECRET_DB_PORT=5432
+              -e SECRET_DB_USERNAME=postgres
+              -e SECRET_DB_PASSWORD=syspass
+              -e SECRET_REDIS_HOST=localhost
+              -e SECRET_REDIS_PORT=6379
+              -e CECRET_KAFKA_HOST=localhost
+              -e SECRET_KAFKA_PORT=9092
+              -e SECRET_JWT_SECRET='m#mySecret@2023'    
+         email:latest
+
+        อธิบายคำสั่ง:
+        docker run   //คำสั่งสร้าง container
+              -d //รัน background ไม่รัน  background ปิดออกมันหายนะ
+              --name myapp  //ชื่อ container
+              -p 8080:8080  // port ใน port นอก
+              -e SECRET_DB_HOST=localhost/192.168.1.102  //ถ้ารันใน docker ให้ไส่เป็น ip เครื่องเราก่อน
+              -e SECRET_DB_PORT=5432  
+              myapp:latest //image ที่จะใช้
+
+รันตรงใหนก็ได้ เพราะมันไม่เหมือนตอนสร้าง image ต้องอ้างอิงไฟล์ มันมี images ใน docker แล้ว
+docker run -d --name myapp -p 8080:8080 -e SECRET_DB_HOST=localhost -e SECRET_DB_PORT=5432 -e SECRET_DB_USERNAME=postgres -e SECRET_DB_PASSWORD=syspass -e SECRET_REDIS_HOST=localhost -e SECRET_REDIS_PORT=6379 -e CECRET_KAFKA_HOST=localhost -e SECRET_KAFKA_PORT=9092 -e SECRET_JWT_SECRET='m#mySecret@2023' myapp:latest
+ตัวแปรที่ set เข้าไปตอนแรกจะถูก set จาก command นี้แหละ ถ้าไม่ได้ set มันถึงจะไปเอาจาก deault อีกที
+ดูตัวแปรให้ถูกไม่ตรงกันแม่งรันไม่ขึ้น แม้ว่ามันจะผิดที่ตัวแปร kafka สะกดผิด แต่มันไป error ตรงตัวแปร db ตอน start container น่ะ
+
+ใช้คำสั่ง docker container ls ดูได้
+หรือใช้ docker container ls -a ดูแม้ว่า container จะหยุดทำงาน
+      docker container run -d --name web01 -p 8080:8080 
+      docker container stop web01
+      docker container rm web01
+
+ถ้ามันรันไม่ได้ Exit(1) ให้เรากดเข้าไปที่ container นั้นใน docker เพื่อดู log
+
+
+9. ทำ docker compose เมื่อคุณใช้ Docker Compose แล้ว คุณไม่จำเป็นต้องรันคำสั่ง docker run แยกต่างหากครับ เพราะ Docker Compose จะจัดการทุกอย่างให้คุณผ่านไฟล์ docker-compose.yml โดยคุณสามารถระบุตัวแปรและการตั้งค่าต่าง ๆ ได้ในไฟล์นี้เลย แล้วใช้คำสั่ง docker-compose up เพื่อการทำงานของบริการทั้งหมด
+      ถ้ายังไม่มีติดตั้ง เพราะ Docker Destop มันไม่รวมมาให้
+   $ brew install docker-compose
+   
+   brew cleanup -n  ลบสิ่งที่ cache ไว้
+
+
+
+   ไฟล์ docker-compose.yaml (ใช้แยก project)
+
+    version: '1'
+    service: 
+       backend:
+         container_name: myapp
+         image: myapp:latest
+         env_file:
+           - .env  
+         ports:
+           - 8080:8080
+
+//ดู log
+docker ps -a
+docker logs <container id>

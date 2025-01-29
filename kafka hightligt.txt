@@ -1,0 +1,68 @@
+//กดเข้าไปใน exece ของ container บน docker ก่อน
+
+ดู message ใน topic
+    kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic activation-email --from-beginning
+
+    kafka-topics.sh --bootstrap-server localhost:9092 --describe --topic activation-email
+    
+
+ดูว่า topic อะไรอยู่บ้าง
+    kafka-topics.sh --list --bootstrap-server localhost:9092
+
+ดูว่ามีกี่ pattiion
+    kafka-topics.sh --describe --topic activation-email --bootstrap-server localhost:9092
+
+
+insert ค่าเข้าไปใน topic
+    kafka-console-producer.sh --broker-list localhost:9092 --topic activation-email
+    //(กดออก crl+c)
+
+ลบ topic
+    kafka-topics.sh --delete --topic activation-email --bootstrap-server localhost:9092
+
+
+สร้าง topic
+    kafka-topics.sh --create --topic activation-email --bootstrap-server localhost:9092 --partitions 3 --replication-factor 1
+    
+    note
+        partitions //แบ่งข้อมูลออกเป็นย่อยๆจะได้เขียนอ่านเร็ว
+        replication-factor //จำนวนสำเนาของข้อมูลไม่ให้ข้อมูลสูญหาย
+        bootstrap-server // server ของ kafka
+
+
+ตั้งให้มันอ่านข้อมูลล่าสุด
+props.put("auto.offset.reset", "latest");
+
+
+flow
+    acks=0: Producer จะไม่รอการยืนยันจาก Kafka ว่าบันทึกข้อมูลแล้ว
+
+    acks=1, Producer จะได้รับการยืนยันจาก Leader partition โดยไม่สนใจว่า replica จะได้รับแล้วหรือยังหรือไม่
+        จะมี Leader จะรับผิดชอบในการบันทึกข้อมูลจาก Producer ไปยัง partition ที่มันเป็นเจ้าของ และจากนั้นส่งการยืนยันกลับไปยัง Producer ว่าการเขียนข้อมูลสำเร็จแล้ว.
+
+    acks=all หรือ acks=-1: หมายความว่า Producer จะรอจนกว่าทุก Replica ใน partition จะได้รับข้อมูลและข้อมูลถูกเขียนเสร็จสมบูรณ์แล้ว. (เน้นปลอดภัยสูง)
+
+    การตั้งค่า props.put("acks", "1");
+    
+    props.put("retries", 3);  // ลองส่งใหม่ 3 ครั้ง (Networkล้ม, ไม่สามารถเชื่อมต่อกับ Kafka Broker, การล่มของ Leader Partition, ข้อความใหญ่เกินไป, Timeouts)
+    props.put("retry.backoff.ms", 1000);  // รอ 1 วินาทีระหว่างการ retry
+        ถ้าเกิน 3 ครั้งแล้ว kafka  จะหยุดพยายามส่งข้อมูลต่อไป และจะโยนข้อผิดพลาด (exception) ให้กับผู้ใช้งาน
+
+    Kafka รับประกันว่า ข้อมูลจะไม่หายไป หากมันถูกบันทึกใน Topic (ถ้าไม่โดนลบออกเอง)    
+
+    จำเป็นต้องแปลงเสมอ: ใช่ครับ, ทุกครั้งที่คุณส่งข้อมูลไปยัง Kafka topic, ข้อมูลจะต้องถูกแปลงเป็น byte array ด้วย Serializer ก่อนเสมอ เพราะ Kafka ใช้ byte array เป็นรูปแบบที่เข้าใจและรองรับในการส่งผ่าน message broker.
+        ถ้าข้อมูลเป็น String, คุณจะใช้ StringSerializer
+        ถ้าข้อมูลเป็น Integer, คุณจะใช้ IntegerSerializer
+        AvroSerializer (แอฟ-โร): เนื่องจาก Avro ใช้ schema ในการเข้ารหัสข้อมูล, จึงสามารถจัดการข้อมูลในรูปแบบที่มีขนาดเล็กกว่าและมีประสิทธิภาพสูงกว่า. Avro รองรับการบีบอัดข้อมูลได้ดี และข้อมูลที่ส่งไปมักจะมีขนาดเล็กกว่าข้อมูลที่ใช้ JSON.
+        JsonSerializer: JSON เป็นรูปแบบข้อความที่สามารถอ่านได้โดยมนุษย์ แต่ไม่ประหยัดพื้นที่เท่ากับ Avro. ขนาดข้อมูลใน JSON อาจจะใหญ่กว่าเนื่องจากไม่มี schema และมีการใช้ข้อความในการแสดงข้อมูลทั้งหมด.
+
+
+        map.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class); //มันคือตัวแปลง key กับ value
+        map.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+
+        ค่าจริงๆอยู่ตรงนี้  kafkaTemplate.send("your-topic-name", key, value);
+
+
+
+
+

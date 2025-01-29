@@ -1,0 +1,126 @@
+1.จะสร้างเว็บตัวนี้จำเป็นต้องใช้ node เช็คว่ามี node ไหม
+node -v
+npm -v
+
+2. ใช้คำสั่ง npx ของ node create doc
+npx create-docusaurus my-docs classic 
+  //classic คือรูปแบบเว็บที่ด็อกคิวซอรัสจัดแบบมาตรฐานให้
+
+3. cd เข้าไป my-docs และ code . เปิดใน editer
+
+4. run และเทสดู
+  npm install //เพื่อโหลดโครงสร้างโปรเจคมาไว้ก่อน
+  npm start เพื่อรันโปรเจค สามารถใช้ได้ใน localhost:3000
+
+5. config เพื่อ deploy ขึ้น git page 
+   ในไฟล์ docusaurus.config.ts
+
+    url: 'https://github.com',
+    baseUrl: '/my-project-structure',  
+    organizationName: 'soulxseeksgg',  <<--- ไส่เป็น name github
+    projectName: 'my-project-structure', <--- ตรงนี้ไส่เหมือนกับชื่อโปรเจค
+    deploymentBranch: 'gh-pages' <<--- branch นี้เอาไว้ deploy dh pages ส่วน main เอาไว้เก็บโค๊ดหลัง
+
+6. https://www.drawio.com/ เขียน flowchart
+
+7. โครงสร้าง
+
+      pages/index2.tsx //call localhost:3000/index2
+      pages/markdown-page.md //call localhost:3000/markdown-page
+      docs/hello.md //call localhost:3000/docs/hello
+      blog/2021-02-28-greetings.md  //call http://localhost:3000/blog/greetings
+
+8. เพิ่มเมนูซ้าย
+      docs/hello.md  //สร้าง mockdown มา
+
+      ในไฟล์ sidebars.ts
+      tutorialSidebar: [
+        'intro',
+        'hello', <<--- ไส่ชื่อ doc ไปมันจะได้เมนูซ้ายมา ถ้าไม่ไส่จะเป็น single page ไม่มีเมนู
+        {
+          type: 'category',
+          label: 'Tutorial',
+          items: ['tutorial-basics/create-a-document'],
+        },
+      ],
+
+9. กำหนด information ของหน้าเพจ
+      ---
+      id: intro
+      title: Introduction to Docusaurus
+      description: Learn how to get started with Docusaurus.
+      sidebar_label: Introduction
+      ---
+
+      # Welcome to Docusaurus!
+
+      Docusaurus is a tool for building beautiful, easily navigable documentation websites.
+
+      อธิบาย
+      id: ใช้ระบุชื่อเอกสารให้ Docusaurus จัดการ
+      title: เป็นชื่อที่แสดงในหน้าเว็บ
+      description: คำอธิบายสั้น ๆ สำหรับ SEO และการแสดงผลในบางส่วนของเว็บ
+      sidebar_label: ใช้ในการแสดงชื่อหมวดหมู่ใน Sidebar
+
+10. link หน้าไปยังเพจใน docusaurus
+  Let's see how to [Create a page](/index2). //ไส่ชื่อไฟล์        
+
+11. ไส่รูป
+  ![Docusaurus logo](/img/docusaurus.png)
+
+
+12. code block แปะโค๊ด (ใน .md นะ​)
+  ```jsx title="src/components/HelloDocusaurus.js"
+  function HelloDocusaurus() {
+    return <h1>Hello, Docusaurus!</h1>;
+  }
+  ```    
+
+
+13. ไส่ tip เตือน
+    :::tip[My tip]
+
+    Use this awesome feature option
+
+    :::
+
+    :::danger[Take care]
+
+    This action is dangerous
+
+    :::
+
+ 14. react ขั้นสูง alert ได้
+    export const Highlight = ({children, color}) => (
+      <span
+        style={{
+          backgroundColor: color,
+          borderRadius: '20px',
+          color: '#fff',
+          padding: '10px',
+          cursor: 'pointer',
+        }}
+        onClick={() => {
+          alert(`You clicked the color ${color} with label ${children}`)
+        }}>
+        {children}
+      </span>
+    );
+
+    This is <Highlight color="#25c2a0">Docusaurus green</Highlight> !
+
+    This is <Highlight color="#1877F2">Facebook blue</Highlight> !   
+
+
+15. ทำให้หน้าแรกเป็น .md
+  เปลี่ยนชื่อมันเป็น index.md
+
+16. ลบเมนู navbar ออก
+  ไปที่ไฟล์ docusaurus.config.ts
+  ไปตรงที่ themeConfig 
+  ตรง navbar
+    ภายใต้ทั้งหมดนี้คือส่วนของเมนูจะลบออกก็ลบตรง Item
+  ลบไปทั้ง tag ก็หาย เช่น ลบ footer  
+
+17. deploy ไปยัง github page
+    GIT_USER=soulxseeksgg USE_SSH=true npm run deploy
