@@ -1,0 +1,270 @@
+#filebeat
+/usr/share/filebeat/filebeat.yml คือ path ใน container ที่จะใช้เป็นที่เก็บไฟล์ filebeat.yml
+
+
+data:
+  filebeat.yml: |
+    filebeat.inputs:
+     - type: container
+    paths:
+      - /var/log/container/*.log
+    processors:
+      - add_kubernetes_metadata:
+          host: ${NODE_NAME}
+          matchers:
+          - logs_path:
+              logs_path: "/var/log/containers/"
+
+    output.elasticsearch:
+      hosts: ["http://elasticsearch:9200"]
+      index: "filebeat-%{+yyyy.MM.dd}"
+
+
+
+
+
+plugin for kubernetes vscode
+  $ kubectl config get-contexts                                                                                                                                 ✘ 1
+  CURRENT   NAME             CLUSTER          AUTHINFO         NAMESPACE
+  *         docker-desktop   docker-desktop   docker-desktop
+  $ kubectl get nodes
+  NAME             STATUS   ROLES           AGE   VERSION
+  docker-desktop   Ready    control-plane   26d   v1.30.2
+//พร้อม
+
+ค้นหา plugin : Kubernetes (ของ microsoft) 
+   จะได้ icon kubernetes ที่เมนูซ้ายมือมา
+   จะเจอ node หรือว่า cluster ของเรา
+
+มันกดเข้าไปใน cluster > node > เลือก node เราซึ่งก็คือ docker-desktop กดดูตา มันจะโชว์ resource ด้วยว่าแต่ละตัวใช้ cpu ram เท่าไหร่ ไม่ต้องใช้ metrict
+
+------------- part filter ------------------
+
+# Filter plugin = filter ทั้งหมด
+    grok มาจากคำว่า "grokking" ซึ่งหมายถึงการเข้าใจบางสิ่งอย่างลึกซึ้งและชัดเจน 
+    GeoIP (จีโอ ip) "geo" มาจากภาษากรีก ซึ่งหมายถึง "โลก" หรือ "พื้นดิน" เก็บ ip รอบพื้นโลก
+
+    ส่วนใหญ่ก็เอาไว้แปลง word นั้นแหละ ส่วน filebeat จะเอา remove event หลักๆ ส่วนตัวนี้เน้นจัดการ word ข้างในข้อความ มันก็ลบ filds ได้เหมือนกันและระเอียดกว่า
+
+    ใช้ grok pattern ที่เขาทำไว้สำหรับ java, redis หรืออื่นๆที่เป็น regex เอามาแปะสร้างเก็บไว้ใน folder source แล้วไปเรียกใช้ pattern นั้น
+
+ grok {
+    match => {
+        "message" => "%{HTTPD_COMMONLOG}"
+           ^
+           เลือก key หรือ fileds ตรงการจัดการ
+    }
+}
+
+
+------
+step
+restart app -> filebeat autodiscover -> send to lostash > logstash filter -> elasticsearch -> forward port ลงมาดูว่ามันมี output อะไรบ้าง
+
+1.restart app (filebeat autodiscover)
+  kubectl rollout restart statefulset my-redis-master -n redis
+  krd myapp -n myapp
+
+  #log filebeat ทำไมไม่มา
+  kl app=filebeat -n elk
+
+  #restart filebeat
+  krds filebeat -n elk
+
+2. ดู log ใน elasticsearch
+  http://localhost:9200/_cat/indices?h=index
+  http://localhost:9200/toon-beats-20250207/_search
+  http://localhost:9200/toon-beats-20250207
+
+
+3. grok ตัดวันที่
+   
+  
+filter {
+
+        grok {
+            patterns_dir => ["/usr/share/logstash/pattern/"]  //1. ใช้ได้แค่ใน grok
+
+            #match => { "message" => "%{MONTHDAY:day} %{MONTH:mounth} %{YEAR:year} %{TIME:time}" } //2. จับ formate ตามลำดับมันต้องต่อกันสลับตำแหน่งไม่ได้ในชุดนั้น
+            #add_field =>{ "date_time" => "%{day} %{mounth} %{year} %{time}" } //หยิบเอาอยากได้ตัวแปรใหน
+
+            match => { "message" => "%{MESSAGE_TIME:mytimex}" } //2. มันจะได้ field ใหม่ขึ้นมาเลยชื่ือ mytimex
+        }
+
+        date {
+          match => ["mytimex", "ISO8601"] //4. เอามาแปลงเป็น timestamp ISO8601 คือ formate มาตรฐานที่ kibana อ่านได้
+          
+          target => "@timestamp"  //5. ทับเข้าตัวแปร @timestamp หรือไม่ไส่มันก็ทับอยู่แล้ว ด้วย default ของ date ไส่ให้มันเห็นเฉยๆ
+        }
+
+        mutate {
+          gsub => [ "message", "\s+", " " ]
+    
+          remove_field => ["agent","ecs","@version","tags","stream","host","mytimex"] // remove mytimex ทิ้ง ค่ามันจะไปอยู่ใน @Timestamp แล้วสังเกตุใน message กับ timestamp คือเวลาเดียวกัน
+        }
+      }
+
+  mypattern.patterns: |
+    MESSAGE_TIME %{MONTHDAY} %{MONTH} %{YEAR} %{TIME}
+
+เว็บ debug
+https://grokdebugger.com/
+
+text  "1:C 11 Feb 2025 00:21:42.715 * Redis version=7.4.2, bits=64, commit=00000000,"
+
+pattern : %{MONTHDAY:d} %{MONTH:m} %{YEAR:y} %{TIME:time}  //ต้องดึงตามตำแหน่ง ถ้าให้ %{MONTHDAY:d} ไปอยู่หลัง สุด มันก็ไม่รู้ว่าตัวเองคืออันใหนไม่ใช่อยู่ตำแหน่งใหนก็ได้
+
+resuilt:
+{
+    "d": 11,
+    "m": "Feb",
+    "y": 2025,
+    "time": "00:21:42.715"
+},
+
+
+
+#logstash
+ทำ mount file จากไฟล์ yaml deployment เข้าไปใน container โดยที่
+spec:
+  containers:
+    - name: logstash
+      image: docker.elastic.co/logstash/logstash:7.2.0
+      volumeMounts:  //<-------####### เพิ่มตรงนี้ ไส่ภายใต้ image
+        - name: logstash-pipeline
+          mountPath: /usr/share/logstash/pipeline/logstash.conf  //<-----ชี้เข้าไปใน container
+          subPath: pipeline.conf
+
+ใน configMap ให้ ตัวแปร  name: logstash-pipeline  map กับไฟล์ใน yaml เราที่สามารถแก้ไข input filter output ได้จากไฟล์ yaml
+ volumes:  <----ไส่ระดับเดียวกับ container
+    - name: logstash-pipeline  <<---จากส่วนบน
+      configMap:
+        name: logstash-config  <<--- ชื่อ configMap
+
+ส่วนของ configMap
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logstash-config  <----ชื่อนี้ เอาไปใช้ข้างบน
+  namespace: elk
+data:
+  pipeline.conf: |
+    input {
+      stdin {}
+    }
+    filter {
+      # Add any filters you want here, e.g., grok, date, etc.
+    }
+    output {
+        elasticsearch {
+          hosts => "http://elasticsearch:9200"  //<---ชื่อ service name ของ elasticsearch
+        } 
+      }         
+
+
+#filebeat
+/usr/share/filebeat/filebeat.yml คือ path ใน container ที่จะใช้เป็นที่เก็บไฟล์ filebeat.yml
+
+
+data:
+  filebeat.yml: |
+    filebeat.inputs:
+     - type: container
+    paths:
+      - /var/log/container/*.log
+    processors:
+      - add_kubernetes_metadata:
+          host: ${NODE_NAME}
+          matchers:
+          - logs_path:
+              logs_path: "/var/log/containers/"
+
+    output.elasticsearch:
+      hosts: ["http://elasticsearch:9200"]
+      index: "filebeat-%{+yyyy.MM.dd}"
+
+
+
+
+
+plugin for kubernetes vscode
+  $ kubectl config get-contexts                                                                                                                                 ✘ 1
+  CURRENT   NAME             CLUSTER          AUTHINFO         NAMESPACE
+  *         docker-desktop   docker-desktop   docker-desktop
+  $ kubectl get nodes
+  NAME             STATUS   ROLES           AGE   VERSION
+  docker-desktop   Ready    control-plane   26d   v1.30.2
+//พร้อม
+
+ค้นหา plugin : Kubernetes (ของ microsoft) 
+   จะได้ icon kubernetes ที่เมนูซ้ายมือมา
+   จะเจอ node หรือว่า cluster ของเรา
+
+มันกดเข้าไปใน cluster > node > เลือก node เราซึ่งก็คือ docker-desktop กดดูตา มันจะโชว์ resource ด้วยว่าแต่ละตัวใช้ cpu ram เท่าไหร่ ไม่ต้องใช้ metrict
+
+
+
+
+
+kubectl exec -it pod/logstash-664f86cf4f-zbh9s -n elk -- /bin/sh
+echo "xx" | /usr/share/logstash/bin/logstash -f /usr/share/logstash/pipeline/basic-logstash.conf
+
+
+
+
+ ## logstash
+   basic-logstash.conf: |
+    input {
+
+      beats {
+        port => 5044
+      }
+
+      http {
+          port => 8080
+          type => "http"
+      }
+
+      file {
+          path => ["/usr/share/logstash/input/basic-*.log"]
+          type => "file"
+      }
+    }
+
+    filter {
+        grok {
+            pattern_definitions => {
+                "mynumber" => "(?:[+-]?(?:[0-9]+))"
+            }
+
+            patterns_dir => ["/usr/share/logstash/pattern"]
+
+            match => {
+                "message" => "%{mynumber2:num2}"
+            }
+        }
+            
+    }
+
+    output {
+        stdout {
+        }
+
+        file {
+            path => ["/usr/share/logstash/output/basic-%{type}-%{+yyyyMMdd}"]
+        }
+
+        elasticsearch {
+          hosts => "http://elasticsearch:9200" 
+          index => "toon-%{type}-%{+yyyyMMdd}"
+        }
+    }
+
+# Filter plugin = filter ทั้งหมด
+    grok มาจากคำว่า "grokking" ซึ่งหมายถึงการเข้าใจบางสิ่งอย่างลึกซึ้งและชัดเจน 
+    GeoIP (จีโอ ip) "geo" มาจากภาษากรีก ซึ่งหมายถึง "โลก" หรือ "พื้นดิน" เก็บ ip รอบพื้นโลก
+
+    ส่วนใหญ่ก็เอาไว้แปลง word นั้นแหละ ส่วน filebeat จะเอา remove event หลักๆ ส่วนตัวนี้เน้นจัดการ word ข้างในข้อความ มันก็ลบ filds ได้เหมือนกันและระเอียดกว่า
+
+    ใช้ grok pattern ที่เขาทำไว้สำหรับ java, redis หรืออื่นๆที่เป็น regex เอามาแปะสร้างเก็บไว้ใน folder source แล้วไปเรียกใช้ pattern นั้น

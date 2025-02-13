@@ -1,0 +1,8 @@
+ถ้าเป็นแบบ statefulset ใช้ในของ elasticsearch ที่ไม่ให้มันตายง่าย ต้องลบ statefulset ก่อน
+k get all -n elk
+k delete statefulset.apps/es-cluster -n elk
+
+
+curl -X GET "localhost:9200/_cat/indices?h=index" 
+            ^
+            call ผ่าน curl ต้องไส่ "" 

@@ -285,11 +285,60 @@ kubectl apply -f myapp-secret.yaml //set secret
 
     --dry-run=client //คำสั่งนี้จะไม่สร้างจริง 
     
-
 18. kubegetalltree เปลี่ยนคำสั่ง
     vi ~/.zshrc
-    source ~/.zshrc
-      
+    source ~/.zshrc    
 
+19. kind ประเภท StatefulSet การลบ      
+  kind: StatefulSet //รองรับการใช้ scale ที่ระมัดระวังความเสียหาย
+  ถ้าเป็น deployment ให้ลบ deployment หายเลย ไม่มีขึ้นมาอีก
+  kubectl delete deployment kibana -n elk
+  kubectl delete service kibana -n elk
 
+20. ds restart
+  kubectl rollout restart ds
 
+21. restart helm chart
+  
+  NAME                                 READY   AGE
+  statefulset.apps/my-redis-master     1/1     5d20h
+  statefulset.apps/my-redis-replicas   0/0     5d20h
+
+kubectl rollout restart statefulset my-redis-master -n redis
+statefulset.apps/my-redis-master restarted  
+
+22 StatefulSet และชื่อที่ต่างจากเพื่อน
+  ถ้าใช้ StatefulSet จะใช้ ที่เป็นเลข 0 ต่อท้าย pod ให้ชื่อมันน่ารักๆได้
+  StatefulSet มักใช้กลับโปรแกรมที่ป้องกันการสูญหายเช่น db ,es
+
+23. label มันดูผ่านคำสั่ง k describe ได้เหมือนกันนี้นา
+  Name:             logstash-54fc8f765f-wjt9r
+  Namespace:        elk
+  Priority:         0
+  Service Account:  default <<---- ดู Service Account ได้ด้วย
+  Node:             docker-desktop/192.168.65.3
+  Start Time:       Wed, 29 Jan 2025 16:32:33 +0700
+  Labels:           app=logstash <<----เห็นไหม
+
+24. รูปแบบไฟล์ config map
+  บอกให้ yaml จะเอาเป็นชุดรูปแบบชุดของ yaml ต้องใช้ | ไส่ก่อนมันงั้นมันจะมองเป็นคนละบรรทัด
+  รูปแบบ
+  
+  apiVersion: v1              
+  kind: ConfigMap               
+  metadata:                     
+    name: example-configmap   # level 1
+  data:
+    asic-logstash.conf: |     # level 1
+      input {                 # level 2
+        stdin {               # level 3
+          type => "stdin"     # level 4
+        }                     
+      }                       
+
+25.  exec เข้า container
+  kubectl exec -it pod/logstash-54fc8f765f-wjt9r -n elk -- /bin/sh
+    -i: ย่อมาจาก --stdin (standard input) คือบอกว่าให้เชื่อมต่อ stdin ไปยัง container เพื่อให้สามารถรับคำสั่งจากภายนอกได้
+    -t: ย่อมาจาก --tty คือบอกว่าให้เปิด terminal (TTY) ใน container ที่จะทำให้สามารถโต้ตอบกับระบบได้เหมือนการใช้ terminal ของจริง
+    --: เครื่องหมายนี้ใช้เพื่อแยกแยะระหว่างคำสั่งที่ใช้ในการทำงานกับ kubectl exec เพื่อบอกว่าจบละ ไม่ใช่อกริวเม้นนะต่อไป
+    /bin/sh คือคำสั่งที่จะให้เปิด shell ใน container ซึ่งหมายความว่าคุณจะสามารถโต้ตอบกับระบบภายใน container ได้เหมือนกับการเปิด terminal ทั่วไปในเครื่องคอมพิวเตอร์

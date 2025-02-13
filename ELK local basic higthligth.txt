@@ -587,7 +587,9 @@ logstash
             mutate {
                 gsub => [
                     "[url][original]","123","xxx"  //อ้าง url.original แทนค่า 123 ด้วย xxx ผลลัพธ์จะแทนที่ค่าได้เป็น output ออกไป
-                ]      
+                ]  
+
+                add_field => { "field_name" => "%{value}" }    
             } 
 
         20.12 cal ยาวๆ ผ่าน http ก็ได้
@@ -606,6 +608,24 @@ logstash
 
         output @timestamp จะได้เป็นปี 2017 "@timestamp" => 2017-09-20T11:22:22.000Z เหมือนกับในตัวแปร timstamp ในไฟล์
         ไฟล์ output ที่ path จะได้ apache-file-20170920
+
+        20.x อ้างอิง tag ข้างใน
+            {
+            "request": "/index.html"
+            "response": {
+                "status": 200,
+                "bytes": 52353
+            },
+            }
+
+            เรียก
+            output {
+                statsd {
+                    increment => "status={[response][status]}"
+                }
+            }
+            
+            %{[response][status]}
 
         20.14 ใช้ if condition
             compare ==, >, >=, ,< , <=, !=
@@ -681,7 +701,15 @@ logstash
                 docker exec -it <logstash_container_name> /bin/bash
         
             ลองใช้ get โดย curl ดู
-                curl -X GET "http://elasticsearch:9200/_indices?h=index"   
+                curl -X GET "http://elasticsearch:9200/_indices?h=index"  
+
+        21.4 cidr
+            cidr filter ใน Logstash เอาไว้เช็กว่า IP อยู่ในช่วง (CIDR range) ที่กำหนดไหม ใช้กรองหรือแท็กข้อมูลตาม IP ได้ง่ายๆ
+            เช่น
+            ถ้า IP ที่มาจากเครือข่ายองค์กร (เช่น 192.168.1.0/24) จะได้ tag internal ถ้าอยู่นอกช่วง → ไม่โดนแท็ก    
+        
+        21.5 cipher filter ใน Logstash ใช้ เข้ารหัส (encrypt) หรือถอดรหัส (decrypt) ข้อมูลใน log เช่น การปกปิดข้อมูลสำคัญ (PII) ก่อนส่งออก
+               
 
         21.3 config ให้มันเร็ซ
 

@@ -1,0 +1,162 @@
+apiVersion: apps/v1
+kind: DaemonSet #เอา 1 node 1 pod จะได้ไม่ซ้ำซ้อน
+metadata:
+  name: filebeat
+  namespace: elk
+  labels:
+    app: filebeat
+spec:
+  selector:
+    matchLabels:
+      app: filebeat
+  template:
+    metadata:
+      labels:
+        app: filebeat
+    spec:
+      securityContext:
+        fsGroup: 0   #ใช้สิทธิ์ในการอ่าน volumn ระดับใหน 
+        runAsUser: 0 #ทำให้ container มีสิทธิ์เป็น root
+      containers:
+        - name: filebeat
+          image: docker.elastic.co/beats/filebeat:7.2.0
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+
+          env:
+            - name: NODE_NAME  #ตั้งชื่อเอาไว้เรียกใช้ kubernets มึงจะดึงค่าให้เองว่าชื่อ node อะไร มันเข้าถึงข้อมูลมันเองได้
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          
+          volumeMounts:
+            - name: filebeat-config
+              mountPath: /usr/share/filebeat/filebeat.yml  #ผูกกับไฟล์ข้างล่าง
+              subPath: filebeat.yml
+
+            - name: varlog-containers
+              mountPath: /var/log/containers      # mount path 3 ตัว จำเป็นต้องใช้หมด
+
+            - name: varlog-pods
+              mountPath: /var/log/pods
+
+            - name: docker-containers
+              mountPath: /var/lib/docker/containers 
+
+            - name: filebeat-registry
+              mountPath: /usr/share/filebeat/data   # mount path ของ registry เอาไว้จำ log
+            
+      volumes:
+        - name: filebeat-config
+          configMap:
+            name: filebeat
+            
+        - name: varlog-containers
+          hostPath:
+            path: /var/log/containers
+            type: Directory  
+
+        - name: varlog-pods
+          hostPath:
+            path: /var/log/pods
+            type: Directory
+
+        - name: docker-containers
+          hostPath:
+            path: /var/lib/docker/containers
+            type: Directory   
+
+        - name: filebeat-registry
+          hostPath:
+            path: /var/lib/filebeat-registry
+            type: DirectoryOrCreate   #ต้องมีสร้าง folder ด้วย     
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: filebeat #ตั้งชื่อให้ตรงกันจะได้เรียกง่ายๆ
+  namespace: elk
+data:
+  filebeat.yml: |
+    logging.level: debug
+    logging.selectors: ["prospector","harvester"]
+
+    filebeat.autodiscover:   #ค้นหาและอ่าน log เองจาก kubernetes ซึ่งมันจะต้องใช้ ClusterRole กับ ClusterRoleBinding ด้านล่าง
+      providers:
+        - type: kubernetes
+          host: ${NODE_NAME}        #ตั้งชื่อไว้ข้างบน
+          templates:
+            - condition:
+                contains:
+                  kubernetes.labels.app: "myapp"          #ใช้ label
+              config:
+                - type: container
+                  paths:
+                    - /var/log/containers/*${data.kubernetes.container.id}.log  
+                  processors:                      #processor เอาไว้ข้างในได้ และมีตัวกลางเอาไว้ข้างนอกได้เหมือนกัน
+                    - add_cloud_metadata: {}       # add เผื่ออยากใช้
+                    - drop_fields:                 
+                        fields: ["ecs","stream","agent","log.offset","@version"]   #เอาบาง filds ออก
+                    - drop_event:       #ลบทั้ง set ของ log นั้นไม่ให้เข้า filebeat โดยใช้เงื่อนไข
+                        when:
+                          or:
+                            - regexp:
+                                message: "^\\W"
+                            - regexp:
+                                message: "^\\s*$"
+            - condition:
+                contains:
+                  kubernetes.labels.app_kubernetes_io/instance: "my-redis"
+              config:
+                - type: container
+                  paths:
+                    - /var/log/containers/*${data.kubernetes.container.id}.log        
+                  processors:
+                    - add_cloud_metadata: {}
+                    - drop_fields:
+                        fields: ["ecs","log.offset","host","input","kubernetes.labels","kubernetes.uid","kubernetes.statefulset","agent"]
+                    - drop_event:
+                        when:
+                          or:
+                            - regexp:
+                                message: "^\\W"
+                            - regexp:
+                                message: "^\\s*$"
+
+    output.logstash:
+      hosts: ["logstash:5044"]
+
+
+
+---
+#สร้าง rules การเข้าถึง ให้เข้าถึงอะไรได้บ้าง มีสิทธิ์อะไรเช่น อ่าน ดู 
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: filebeat-cluster-role 
+rules:
+  - apiGroups: [""]  
+    resources: ["pods", "namespaces", "nodes"] 
+    verbs: ["list", "get","watch"]
+
+---
+#ผูกกฏข้างบนกับ user ของเราถ้าไม่ได้กำหนด ServiceAccount มันจะเป็น default 
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: filebeat-cluster-role-binding  
+subjects:
+  - kind: ServiceAccount
+    name: default 
+    namespace: elk
+roleRef:
+  kind: ClusterRole
+  name: filebeat-cluster-role 
+  apiGroup: rbac.authorization.k8s.io
+#เลือกเลือกกฏที่จะผูก rbac = role access control อะไรซักอย่าง เป็น group ของ API kubenertes
+    
+
+

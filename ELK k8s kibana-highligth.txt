@@ -1,0 +1,139 @@
+
+env: //ในไฟล์​ deployment ของ kibana
+    value: http://elasticsearch:9200 //คำว่า elasticsearch มาจาก service name ขอ deployment ของ elasticsearch
+
+ตรง image หาจาก
+https://www.docker.elastic.co/    
+
+    spec:
+      containers:
+      - name: kibana
+        image: docker.elastic.co/kibana/kibana:7.2.0
+
+
+kibana ก็ call ได้ 3 แบบ
+port-forward
+nodePort    
+ngx Ingress
+
+
+kibana call เอาข้อมูลที่อยุ่ใน elasticsearch ผ่านการ call api ไม่ได้ ทำได้แค่เพียงเช็ค status ของแอพอันนี้เทสผ่าน api ได้ แต่การ query ต้องทำผ่านเว็บ
+call query
+http://localhost:5601/app/kibana
+
+
+
+เมนูซ้ายมือ > Dev Tool // query data ของ elasticsearch ทำไว้
+           Discover เอาไว้ดู logs แบบ UI แยก logs ให้ไม่ต้องไป query ตรงๆใน dev tool
+           Dashboard หรือ Visualizations: ดูแบบกราฟ
+
+
+------
+เว็บ
+http://localhost:5601/app/kibana
+
+เมนู setting index
+  เมนู Management > Kibana > index pattern > Create index pattern 
+  > กรอก pattern ที่ใช้ได้ กด Next 
+  > Configure settings 
+  > ไส่ @timestamp กด create index
+
+dev tool
+  --
+
+เมนู Management
+  Advanced settings > Date format > เลือกเปลี่ยน formate date ที่จะ disply ได้  
+
+discover
+  เหมือนกับ dev tools แต่ไม่ต้องพิมพ์เอง 
+  
+  สัมพันธ์กับที่เราตั้ง index ในเมนู mange index pattern ไว้ เห็นมันโชว์สิ่งทีทำไว้ คือ log-* 
+     ถ้า set ไว้ว่าให้ index pattern เป็น og-2025-02-10* ในหน้า discover มันก็จะโชว์แค่ index นี้
+
+  - กดเลือก date ที่จะโชว์ได้ที่เมนูขวามือ
+  - กดดูเฉพาะ fields ได้ของแต่ละ index จริงๆมันคือดู log ตามช่วงเวลานั้นแหละ
+  - มันเลือก search ตามคำได้แล้วมันจะโชว์ rows แล้วเราค่อยตามไปดูใน index
+  - ในกราฟแท่งๆสามารถใช้เมาส์คลุมดำเพื่อดูแบบระเอียดขึ้นได้ เหมือนซูมเข้าไปดูในเวลานั้น
+  - กด > ข้างหน้า rows ที่แสดงมันจะดูรูปแบบ json ได้ด้วย 
+  - ตรงเมนู date ขวามือมีให้ดูประวัติตัวที่กดเข้าไปดูแล้วด้วย
+    
+    Buckets
+      X-Axis แสดงตามแกน เช่น ตามช่วงเวลา @timestamp, ตาม status_code
+
+visualization
+  เอาไว้สร้างกราฟแสดงผลข้อมูล
+  กด creaet visaullization > เลือกจะเอาแบบใหน
+    - ลองเลือกแบบ pie > เลือก index ที่ set ไว้ > มันจะโชว์เป็นกราฟแบบ pie วงกลมเลย
+    ตรงเมนู buckets เลือกโชว์แบบแยกวันแยกอะไรได้ เช่น ถ้าเราเลือกแยกมันมันก็จะได้ วันนี้ได้สีนี้ สรุปแบบกราฟออกมาให้ว่าวันใหนมี log เยอะกว่า ดู % ได้ด้วย
+    ตรง metrics เลือกได้ว่าจะให้นับจากอะไร จะเอาเป็นแบบ count หรือว่า sum ก็ได้
+      ตรง option เปลี่ยนรูปแบบได้ด้วยไม่เอาวงกลมแบบโดนัทที่มีรูตรงกลาง เอาเป็นแบบ พิซซ่าก็ได้ปลายแหลม
+    มัน save รูปแบบหรือ formate ไว้ดูอีกรอบได้ด้วย   
+    - ลองเลิกแบบ area > ขวามือล่างจะมี buckets > เลือกเป็น Date Histragram
+
+dashboard
+  เอาไว้รวมพวก visaulization หลายๆอันไว้ในหน้าเดียว คือ import มาดูในนี้ได้ กดที่ add ทำเสร็จแล้ว save แล้วเก็บ formate ไว้ดูได้เมื่อกลับมาใหม่
+  แล้วเวลากดดูข้อมูลมันจะเชื่อมกัน
+
+Canvas
+  คล้าย dashboard แต่มีความหยืดหยุ่นอิสระกว่า สร้าง data ใหม่เองไม่ได้เอามาจาก visaulization สร้างเองนักเลงพอ query(ใช้ sql ได้ด้วยเฉย) เองใหม่หมด
+
+  ตัวอย่าง query
+  data 
+  {
+    "user": {
+      "name": "John Doe",
+      "addresses": [
+        {
+          "city": "New York",
+          "postal_code": "10001"
+        },
+        {
+          "city": "Los Angeles",
+          "postal_code": "90001"
+        }
+      ]
+    }
+  }
+
+ query
+  SELECT user.name, user.addresses.city //อ้างเข้าไปเลย
+  FROM "users"
+  WHERE user.addresses.city = 'New York'
+
+Machine Learning 
+  Anomaly Detection: ใช้เพื่อค้นหาความผิดปกติในข้อมูล เช่น การตรวจจับ traffic หรือพฤติกรรมที่ผิดปกติ
+  Forecasting: สำหรับการทำนายข้อมูลในอนาคตตามโมเดลที่ถูกสร้างขึ้น 
+
+ Logs 
+  ใช้สำหรับการดูแลและตรวจสอบข้อมูล log ที่ถูกส่งไปยัง Elasticsearch   
+
+
+map
+  แสดงเป็นพื้นที่
+
+infrastructure
+  ใช้สำหรับการมอนิเตอร์ สภาพแวดล้อมของโครงสร้างพื้นฐาน (Infrastructure) เช่น เซิร์ฟเวอร์, เครื่องคอมพิวเตอร์, คอนเทนเนอร์, หรือ VM ที่รองรับแอปพลิเคชัน
+
+ARM (Apm Real-time Monitoring)
+  มุ่งเน้นที่การมอนิเตอร์ ประสิทธิภาพของแอปพลิเคชัน เช่น การตอบสนองของ service service, จำนวนคำขอ, การประมวลผลคำขอ, และข้อผิดพลาดที่เกิดขึ้นในแอปพลิเคชัน 
+
+Uptime 
+  ใช้สำหรับการมอนิเตอร์ ความพร้อมใช้งาน (availability) ของ บริการ หรือ เซิร์ฟเวอร์ เช่น เว็บเซิร์ฟเวอร์, API, หรือ URL
+
+เมนู SIEM (Security Information and Event Management) 
+  ใน Kibana ใช้สำหรับการ ตรวจสอบและวิเคราะห์ข้อมูลด้านความปลอดภัย ของระบบที่ต่อหรือ monitor (ไม่เฉพาะ k8s ไม่ได้เอาไว้แค่เก็บ log)
+
+เมนู Stack Monitoring 
+  ใน Kibana ใช้สำหรับ มอนิเตอร์สถานะการทำงาน และ ประสิทธิภาพ ของ Elastic Stack (Elasticsearch, Logstash, Kibana, และ Beats)   
+
+
+ทำ monitor log ได้ดู log ว่ามี peek ช่วงใหน, monitor alert  
+
+
+แล้วสมมุติว่าเอา filebeat ไปเก็บ log เช่น redis กับ app ของเรา ไอ้คำว่า log error มันจะได้มาใน field ใหน เพราะว่ามันอ่านมาจากไฟล์ log ที่ปริ้นออกมาตอนโปรแกรม error ใช่ไหม แล้วมันพ่นออกมาแล้ว filebeat ก็ไปเก็บไอ้ตัว log นั้นมา แสดงว่า filebeat มันไม่รู้อันใหนคือคือ error ไม่ error มันแค่อ่าน log ที่ปริ้นออกจากไฟล์ log และเก็บ environment ของ pod หรือ container นั้นมา เราต้องมาแยกเองใช่ไหมว่าจะเอาตัวใหนเป็น error เก็บ field เอง เพื่อเอาไปใช้กดแยกตัวอยู่บน kibana
+
+app - > error print log > ใน path container log
+filebeat -> เข้าไปอ่านพร้อมเก็บข้อมูล pod container ต่างๆมา
+ประกอบเป็นชุด json ต่างๆ มา แสดงว่าไอ้ตัว error filebeat มันเก็บไม่ได้ 
+
+สิ่งที่ต้องทำแค่แยกประเภท log ออกจาก message แล้วเก็บไว้ใน fields แยกเพื่อเอาไว้กดดูหรือเอาไว้ where filter เฉพาะ log นี้ จะได้ดูง่ายๆ
