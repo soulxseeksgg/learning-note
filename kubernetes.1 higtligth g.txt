@@ -287,7 +287,7 @@ kubectl apply -f myapp-secret.yaml //set secret
     
 18. kubegetalltree เปลี่ยนคำสั่ง
     vi ~/.zshrc
-    source ~/.zshrc    
+    source ~/.zshrc   
 
 19. kind ประเภท StatefulSet การลบ      
   kind: StatefulSet //รองรับการใช้ scale ที่ระมัดระวังความเสียหาย
@@ -342,3 +342,117 @@ statefulset.apps/my-redis-master restarted
     -t: ย่อมาจาก --tty คือบอกว่าให้เปิด terminal (TTY) ใน container ที่จะทำให้สามารถโต้ตอบกับระบบได้เหมือนการใช้ terminal ของจริง
     --: เครื่องหมายนี้ใช้เพื่อแยกแยะระหว่างคำสั่งที่ใช้ในการทำงานกับ kubectl exec เพื่อบอกว่าจบละ ไม่ใช่อกริวเม้นนะต่อไป
     /bin/sh คือคำสั่งที่จะให้เปิด shell ใน container ซึ่งหมายความว่าคุณจะสามารถโต้ตอบกับระบบภายใน container ได้เหมือนกับการเปิด terminal ทั่วไปในเครื่องคอมพิวเตอร์
+
+
+-----baisc yaml deployment ------
+
+  ไฟล์ yaml ที่ใช้ติดตั้งพัฒนาจาก kubernetes
+
+  ----apiVersion กับ kind ใน yaml ---
+
+  apiVersion: xxx/v1   (มักเป็น v1 เสมอ v2 กำลังพัฒนาอยู่), xxx มันคือ group
+    สามารถเป็นอะไรได้บ้าง
+      apps → ใช้กับ Deployment, DaemonSet, StatefulSet
+      batch → ใช้กับ Job, CronJob
+      networking.k8s.io → ใช้กับ Ingress, NetworkPolicy
+      rbac.authorization.k8s.io → (rbac คือ  Role-Based Access Control) ใช้กับ Role, RoleBinding, ClusterRole, ClusterRoleBinding
+      policy → ใช้กับ PodSecurityPolicy
+      storage.k8s.io → ใช้กับ StorageClass, VolumeAttachment
+      autoscaling → ใช้กับ HorizontalPodAutoscaler
+      apiextensions.k8s.io → ใช้กับ CustomResourceDefinition (CRD)
+      admissionregistration.k8s.io → ใช้กับ ValidatingWebhookConfiguration, MutatingWebhookConfiguration
+              
+    kind มีเป็นร้อย
+      - Deployment สร้าง หลายๆ Pod ที่ scale ได้และแทนที่เวอร์ชันเก่าอัตโนมัติ
+        พฤติกรรม:
+          # ใช้ ReplicaSet ควบคุมจำนวน replicas
+          # มี Rolling Update (อัปเกรด Pod แบบไม่มี downtime)
+          # Stateless Applications เช่น Web Server, API Service ไม่ได้จำค่ารับค่าใหม่เสมอเช่นแอพ api ,  Backend Service ที่ scale ได้อิสระ
+
+      - DaemonSet kind แบบ 1 pod ต่อ 1 node 
+        # ไม่ใช้ ReplicaSet เพราะไม่ต้องกำหนดจำนวน replicas
+        # ถ้ามี Node ใหม่เกิดขึ้น → DaemonSet จะสร้าง Pod ให้ทันที 
+        # เหมาะกับ filebeat, fluentd (ให้ทุก Node มีตัวเก็บ logs)
+
+      - StatefulSet #Pod แต่ละตัวต้องมี ชื่อและ storage คงที่
+              พฤติกรรม:
+              # Pod แต่ละตัวจะมีเลขลำดับ (my-pod-0, my-pod-1, my-pod-2)
+              # Pod ไม่ได้สร้างพร้อมกัน แต่สร้างทีละตัว ตามลำดับ
+              # Pod ถูกลบไป → จะถูกสร้างใหม่โดยใช้ชื่อเดิม
+              # เหมาะกับ Stateful Applications เช่น Database, Zookeeper, Kafka
+              ตัวอย่างการใช้งาน:
+              Database เช่น MySQL, PostgreSQL, MongoDB
+              Distributed Systems เช่น Zookeeper, Kafka
+      - Pod
+      - Service
+      - ConfigMap
+      - Secret
+      - Job
+      - CronJob
+      - Ingress
+      - Role
+      - RoleBinding
+      - ClusterRole
+      - ClusterRoleBinding
+      - PersistentVolume
+      - PersistentVolumeClaim
+      - HorizontalPodAutoscaler
+      - CustomResourceDefinition (CRD)
+
+        ตารางแบบเทียบ kind ที่ใช้กับแอพ
+        +-------------------------+-------------------------+-------------------------+-------------------------+
+        |        Feature          |        DaemonSet        |       Deployment        |      StatefulSet        |
+        +-------------------------+-------------------------+-------------------------+-------------------------+
+        |        จำนวน Pod        |       1 ต่อ Node         |        ตาม replicas     |       ตาม replicas      |
+        +-------------------------+-------------------------+-------------------------+-------------------------+
+        |      ใช้ ReplicaSet?     |           ❌            |           ✅             |           ❌            |
+        +-------------------------+-------------------------+-------------------------+-------------------------+
+        |        Scaling          |     เพิ่มลดตาม Node       |          อิสระ           |       ตาม replicas      |
+        +-------------------------+-------------------------+-------------------------+-------------------------+
+        |       Pod Identity      |        ไม่สนใจชื่อ         |        ไม่สนใจชื่อ         |  มีลำดับชื่อ (pod-0, pod-1) |
+        +-------------------------+-------------------------+-------------------------+-------------------------+
+        |      Rolling Update     |           ใช่            |           ใช่            |     ใช่ (แต่ทีละตัว)        |
+        +-------------------------+-------------------------+-------------------------+-------------------------+
+        |        ใช้กับอะไร?        | Agents, Log Collector   | Web, API, Backend       | DB, Kafka, Zookeeper    |
+        +-------------------------+-------------------------+-------------------------+-------------------------+
+  ---- apiVersion กับ kind ใน yaml ---
+
+  ----- สิทธิ์การอ่าน volume และสิทธิ์ที่ใช้ในการรัน container ---
+  securityContext:
+    fsGroup: 0   // สิทธิการเข้าถึงไฟล์จาก volumne ใช้ใช้ 0 คืออ่านไฟล์ root ได้แค่นี้ก็เพียงพอสำหรับ filebeat ไม่ต้องให้ container เป็น root เหมือนข้างล่าง
+    runAsUser: 0  // ทำให้ container เป็น root ทำอะไรได้หมด 
+
+  ---สิทธิ์ใน ClusterRole-----  
+    #ว่าด้วยเรื่องของสิทธิ์ใน ClusterRole  RBAC (Role-Based Access Control)
+      1. Role / ClusterRole → กำหนดสิทธิ์ (เช่น อ่าน/เขียน Pods)
+        RoleBinding / ClusterRoleBinding → ผูกสิทธิ์ให้กับ Users, Groups หรือ ServiceAccounts
+        Subjects → ผู้ใช้งาน (User, Group, ServiceAccount)
+        Verbs → กำหนดว่าอนุญาตให้ทำอะไร (เช่น get, list, create, delete)
+        Resources → ระบุว่าให้สิทธิ์กับอะไร (เช่น pods, deployments, services)  
+
+        #ตัวอย่าง เช่น
+        apiVersion: rbac.authorization.k8s.io/v1  
+        kind: ClusterRole 
+        metadata:
+          name: filebeat-cluster-role  # กำหนดชื่อของ ClusterRole
+        rules:
+          - apiGroups: [""]  # กำหนดประเภท apiGroups (ในที่นี้ pod มันไม่ได้สังกัด group ใดเลยไม่ต้องไส่)
+            resources: ["pods"]  # ระบุ resource ที่ต้องการให้สิทธิ์ เช่น pods อ้างอิงไปที่ pods
+            verbs: ["list", "get"]  # คำสั่ง (verbs) ที่อนุญาตให้ทำได้
+
+      2. #กำหนด role ผูกกับ account user ของ container
+        apiVersion: rbac.authorization.k8s.io/v1
+        kind: ClusterRoleBinding
+        metadata:
+          name: filebeat-cluster-role-binding  # ชื่อของ ClusterRoleBinding
+        subjects:
+          - kind: ServiceAccount
+            name: default  # user ในการรับสิทธิ์ ( ถ้าไม่กำหนด ServiceAccount จะได้ชื่อเป็น default )
+            namespace: elk # namespace ในการรับสิทธิ์ ให้อ่าน pod ตามสิิทธ์ในคำสั่งแรก
+        roleRef:
+          kind: ClusterRole  #อ้างอิงไปที่กฏที่สร้างไว้
+          name: filebeat-cluster-role  # อ้างอิงชื่อ ClusterRole
+          apiGroup: rbac.authorization.k8s.io
+
+
+-----baisc yaml deployment ------

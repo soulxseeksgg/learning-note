@@ -1,270 +1,339 @@
-#filebeat
-/usr/share/filebeat/filebeat.yml คือ path ใน container ที่จะใช้เป็นที่เก็บไฟล์ filebeat.yml
 
+-------อธิบายโครงสร้าง yaml logstash -----
+1.# deployment
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: logstash
+    namespace: elk
+    labels:
+      app: logstash
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app: logstash
+    template:
+      metadata:
+        labels:
+          app: logstash
+      spec:
+        containers:
+          - name: logstash
+            image: docker.elastic.co/logstash/logstash:7.2.0
+            resources:
+              limits:
+                cpu: 1200m <<---- cpu 1200mm ไม่งั้นไม่ขึ้น ไม่เร็ว ต้องระดับ 1Gb+
+                memory: 1Gi
+            ports:
+              - containerPort: 5044
+                name: beats-input
 
-data:
-  filebeat.yml: |
-    filebeat.inputs:
-     - type: container
-    paths:
-      - /var/log/container/*.log
-    processors:
-      - add_kubernetes_metadata:
-          host: ${NODE_NAME}
-          matchers:
-          - logs_path:
-              logs_path: "/var/log/containers/"
+            volumeMounts:
+              - name: logstash-config-reload
+                mountPath: /usr/share/logstash/config/logstash.yml  <<----ไฟล์ config ของ logstash เลย กำหนดพวก log level, reload ต่างๆในไฟล์นี้
+                subPath: logstash.yml
 
-    output.elasticsearch:
-      hosts: ["http://elasticsearch:9200"]
-      index: "filebeat-%{+yyyy.MM.dd}"
+              - name: logstash-pipelines
+                mountPath: /usr/share/logstash/config/pipelines.yml <<--- เอาไว้กำหนด id ของ pipeline มี 3 ตัวก็ 3 อันต้อง config ไว้ในนี้
+                subPath: pipelines.yml
 
+              - name: logstash-main-input
+                mountPath: /usr/share/logstash/pipeline/main-input.conf <<--- ทำ pipeline ซ้อน pipeline ทำให้มันรับจาก port เดียวกันได้ และค่อยส่งไปยัง pipeline อื่น
+                subPath: main-input.conf
 
+              - name: logstash-myapp-pipeline
+                mountPath: /usr/share/logstash/pipeline/myapp-pipeline.conf <<--- pipeline แยก อันที่ 1
+                subPath: myapp-pipeline.conf
 
+              - name: logstash-redis-pipeline
+                mountPath: /usr/share/logstash/pipeline/redis-pipeline.conf <<--- pipeline แยก อันที่ 1
+                subPath: redis-pipeline.conf
 
+              - name: logstash-pattern
+                mountPath: /usr/share/logstash/pattern/mypattern.patterns <<--- เอาไว้สร้าง pattern ของตัวเอง การเรียกใช้อยู่ข้างล่าง
+                subPath: mypattern.patterns  
 
-plugin for kubernetes vscode
-  $ kubectl config get-contexts                                                                                                                                 ✘ 1
-  CURRENT   NAME             CLUSTER          AUTHINFO         NAMESPACE
-  *         docker-desktop   docker-desktop   docker-desktop
-  $ kubectl get nodes
-  NAME             STATUS   ROLES           AGE   VERSION
-  docker-desktop   Ready    control-plane   26d   v1.30.2
-//พร้อม
+              - name: logstash-data
+                mountPath: /usr/share/logstash/data/   <<---- เอาไว้เก็บ data ที่มันโหลดมา ถึงกับต้องทำ pv ให้มันเลย
 
-ค้นหา plugin : Kubernetes (ของ microsoft) 
-   จะได้ icon kubernetes ที่เมนูซ้ายมือมา
-   จะเจอ node หรือว่า cluster ของเรา
+        volumes:
+          - name: logstash-config-reload  <<----- map กับชื่อข้างบน
+            configMap:
+              name: logstash-configmap  <<----- map ชี้ไปที่ไฟล์ configmap ข้างล่าง
 
-มันกดเข้าไปใน cluster > node > เลือก node เราซึ่งก็คือ docker-desktop กดดูตา มันจะโชว์ resource ด้วยว่าแต่ละตัวใช้ cpu ram เท่าไหร่ ไม่ต้องใช้ metrict
+          - name: logstash-pipelines <<----- เหมือนกัน
+            configMap:    <---- ตรงนี้บอกว่าใช้ map แบบ configmap
+              name: logstash-configmap <<----- เหมือนกันห   
 
-------------- part filter ------------------
+          - name: logstash-main-input
+            configMap:
+              name: logstash-configmap
+                  
+          - name: logstash-myapp-pipeline
+            configMap:
+              name: logstash-configmap
 
-# Filter plugin = filter ทั้งหมด
-    grok มาจากคำว่า "grokking" ซึ่งหมายถึงการเข้าใจบางสิ่งอย่างลึกซึ้งและชัดเจน 
-    GeoIP (จีโอ ip) "geo" มาจากภาษากรีก ซึ่งหมายถึง "โลก" หรือ "พื้นดิน" เก็บ ip รอบพื้นโลก
+          - name: logstash-redis-pipeline
+            configMap:
+              name: logstash-configmap      
 
-    ส่วนใหญ่ก็เอาไว้แปลง word นั้นแหละ ส่วน filebeat จะเอา remove event หลักๆ ส่วนตัวนี้เน้นจัดการ word ข้างในข้อความ มันก็ลบ filds ได้เหมือนกันและระเอียดกว่า
+          - name: logstash-pattern
+            configMap:
+              name: logstash-configmap
 
-    ใช้ grok pattern ที่เขาทำไว้สำหรับ java, redis หรืออื่นๆที่เป็น regex เอามาแปะสร้างเก็บไว้ใน folder source แล้วไปเรียกใช้ pattern นั้น
+          - name: logstash-data
+            persistentVolumeClaim:
+              claimName: logstash-pvc   <<--- ชี้ path หรือตัวแปร volume นี้หรือข้างบนไปที่ pvc ที่สร้างไว้ ว่าให้มันใช้เคลมตัวนี้และเคลมมันจะไปหาจับ pv เอง ซึ่งเราก็สร้างให้มันพอดีไว้แล้ว 
 
- grok {
-    match => {
-        "message" => "%{HTTPD_COMMONLOG}"
-           ^
-           เลือก key หรือ fileds ตรงการจัดการ
-    }
-}
+---
+2. # PV สร้างไว้สำหรับเก็บข้อมูลแบบ HD ไปแบ่งเอามาจาก HD
+  apiVersion: v1
+  kind: PersistentVolume
+  metadata:
+    name: logstash-pv
+  spec:
+    capacity:
+      storage: 1Gi   <<---แบ่งมาจาก hostpath 1Gb
+    volumeMode: Filesystem
+    accessModes:
+      - ReadWriteOnce
+    persistentVolumeReclaimPolicy: Retain  <<--- Retain คือคงทนถาวร แม้ pvc จะถูกลบ แต่ตัวนี้ก็จะไม่หาย
+    storageClassName: hostpath <<--- ชื่อ hd ของ kubernetes
+    hostPath:
+      path: /usr/share/logstash/data/ <<--- path ที่จะให้สร้าง ซึ่งเราเอาให้เหมือนกับ path จริงเลยจะได้ไม่สับสน
 
+---
+3. # PVC ตัวผูกกับ pv ซึ่งเหมือนกับการไปขอเสียบ เรากำหนดไว้ว่าอยากได้ 1Gb ใน hostpath นี้มันก็จะไปหา pvc ให้เองเลยที่มันพอดีกับความจุ ไม่ต้องอ้างชื่อตรงๆ
+  apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata:
+    name: logstash-pvc
+    namespace: elk 
+  spec:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 1Gi  <<--- ต้องการ 1Gb
+    storageClassName: hostpath   <---- ที่ในตรงนี้
 
-------
-step
-restart app -> filebeat autodiscover -> send to lostash > logstash filter -> elasticsearch -> forward port ลงมาดูว่ามันมี output อะไรบ้าง
+4 # config map ตัวเดือด
+  apiVersion: v1
+  kind: ConfigMap     <<--- kind ประเภท configmap
+  metadata:
+    name: logstash-configmap   <<--- ชื่อ configmap
+    namespace: elk   <<--- namespace ที่จะอยู่
+  data:
+    
+    logstash.yml: |           <<------ configmap ไฟล์แรก
+      config.reload.automatic: true
+      config.reload.interval: 3s     <<----- เอาไว้สั่งให้มัน reload ซึ่งมันทำไม่ไม่ได้หรอกบน k8s ไม่รู้ทำยังไง มันเป็น configmap มันไม่ใช่ไฟล์ไอ้ตัว pipeline อ่ะ มันไม่ให้แก้ สิทธ์ไฟล์ configmap piple มันเป็น root
+    
+    pipelines.yml: |          <<------ configmap ไฟล์ที่สอง
+      - pipeline.id: main-input
+        path.config: "/usr/share/logstash/pipeline/main-input.conf"
 
-1.restart app (filebeat autodiscover)
-  kubectl rollout restart statefulset my-redis-master -n redis
-  krd myapp -n myapp
+      - pipeline.id: myapp-pipeline
+        path.config: "/usr/share/logstash/pipeline/myapp-pipeline.conf"
 
-  #log filebeat ทำไมไม่มา
-  kl app=filebeat -n elk
+      - pipeline.id: redis-pipeline
+        path.config: "/usr/share/logstash/pipeline/redis-pipeline.conf"
+    
 
-  #restart filebeat
-  krds filebeat -n elk
+    main-input.conf: |
+      input {    <<----- ทำ input กลาง รับจาก port ของ filebeat
+        beats {
+          port => 5044
+          type => "beats"
+        }
+      }
 
-2. ดู log ใน elasticsearch
-  http://localhost:9200/_cat/indices?h=index
-  http://localhost:9200/toon-beats-20250207/_search
-  http://localhost:9200/toon-beats-20250207
+      output {
+        if [appname][app] == "myapp" {    <<---เช็คเงื่อนไขและส่งไปยัง pipline อื่น
+          pipeline { send_to => "myapp-pipeline" }  <<---- ในทีนี้มี 2 ตัว
+        } else if [appname][app] == "redis" {
+          pipeline { send_to => "redis-pipeline" }  <<--- ของ redis
+        }
+      }
 
+    myapp-pipeline.conf: |    <---- pipeline ของ myapp
+      input {
+        pipeline {
+          address => "myapp-pipeline"   <<--- รับ input แบบ pipeline to pipeline
+        }
+      }
 
-3. grok ตัดวันที่
-   
-  
-filter {
-
-        grok {
-            patterns_dir => ["/usr/share/logstash/pattern/"]  //1. ใช้ได้แค่ใน grok
-
-            #match => { "message" => "%{MONTHDAY:day} %{MONTH:mounth} %{YEAR:year} %{TIME:time}" } //2. จับ formate ตามลำดับมันต้องต่อกันสลับตำแหน่งไม่ได้ในชุดนั้น
-            #add_field =>{ "date_time" => "%{day} %{mounth} %{year} %{time}" } //หยิบเอาอยากได้ตัวแปรใหน
-
-            match => { "message" => "%{MESSAGE_TIME:mytimex}" } //2. มันจะได้ field ใหม่ขึ้นมาเลยชื่ือ mytimex
+      filter {
+      
+        grok {  // grok มันตัดไส่ตัวแปรไว้ ถ้าไส่มากกว่า 1 ตัวแปร มันต้องไส่ข้างหลังให้ครบ ให้เหมือน formate จริง
+            match => { "message" => "%{TIMESTAMP_ISO8601:timestamp} %{DATA:log_level} %{NUMBER:pid} --- \[%{DATA:thread}\] %{DATA:class} : %{GREEDYDATA:messages}" }
         }
 
         date {
-          match => ["mytimex", "ISO8601"] //4. เอามาแปลงเป็น timestamp ISO8601 คือ formate มาตรฐานที่ kibana อ่านได้
-          
-          target => "@timestamp"  //5. ทับเข้าตัวแปร @timestamp หรือไม่ไส่มันก็ทับอยู่แล้ว ด้วย default ของ date ไส่ให้มันเห็นเฉยๆ
+          match => ["timestamp", "ISO8601"]  <<---- แปลงไอ้ข้างที่ตัดมาจาก grok แปลงด้วย formate ที่ kibana ชื่นชอบ มันคือการแปลง string เป็น timestamp เฉยๆ
+          target => "event_timestamp"    <<--- เก็บไว้ในตัวแปรอะไร ถ้าไม่ไส่ มันจะทับไปใน @timestamp เลย
+        }
+
+        if "_grokparsefailure" in [tags] {  <<---- ถ้า grok มันตัดไม่ได้ มันจะตกเคสนี้ เราก็เพิ่ม fields ให้มัน แล้วเอาไปเช็คข้างล่างว่าให้ส่งแยก ตัวที่เฟล
+          mutate {
+            add_field => { "parse_status" => "failed" }
+          }
         }
 
         mutate {
-          gsub => [ "message", "\s+", " " ]
-    
-          remove_field => ["agent","ecs","@version","tags","stream","host","mytimex"] // remove mytimex ทิ้ง ค่ามันจะไปอยู่ใน @Timestamp แล้วสังเกตุใน message กับ timestamp คือเวลาเดียวกัน
+          gsub => [ 
+            "messages", "^\s+|\s+$", ""  <<---- replcae ช่องว่างหน้าหลัง มันไม่มี trim ให้ใช้หรอวะ
+            ,"log_level", "^\s+|\s+$", ""
+            ,"class", "^\s+|\s+$", ""
+          ]
+          
+          remove_field => ["agent","ecs","@version","tags","timestamp","pid","message"]  <<---- ลบฟิลด์ที่เกะกะออก
+        }
+
+      }
+
+      output {
+
+          stdout { codec => rubydebug }  <<--- สามารถส่งออกได้หลายทาง
+
+          if [parse_status] == "failed" {
+            elasticsearch {
+              hosts => ["http://elasticsearch:9200"]
+              index => "log-failed-%{[appname][app]}-%{+yyyyMMdd}"  <<--- แยกพร้อมทั้งกำหนด index
+            }
+          } else {
+            elasticsearch {
+              hosts => ["http://elasticsearch:9200"]
+              index => "log-%{[appname][app]}-%{+yyyyMMdd}"
+            }
+          }
+        
+      }
+
+    redis-pipeline.conf: |  <<<----- pipeline ตัวที่ 2
+      input {
+        pipeline {
+          address => "redis-pipeline"
         }
       }
 
-  mypattern.patterns: |
-    MESSAGE_TIME %{MONTHDAY} %{MONTH} %{YEAR} %{TIME}
-
-เว็บ debug
-https://grokdebugger.com/
-
-text  "1:C 11 Feb 2025 00:21:42.715 * Redis version=7.4.2, bits=64, commit=00000000,"
-
-pattern : %{MONTHDAY:d} %{MONTH:m} %{YEAR:y} %{TIME:time}  //ต้องดึงตามตำแหน่ง ถ้าให้ %{MONTHDAY:d} ไปอยู่หลัง สุด มันก็ไม่รู้ว่าตัวเองคืออันใหนไม่ใช่อยู่ตำแหน่งใหนก็ได้
-
-resuilt:
-{
-    "d": 11,
-    "m": "Feb",
-    "y": 2025,
-    "time": "00:21:42.715"
-},
-
-
-
-#logstash
-ทำ mount file จากไฟล์ yaml deployment เข้าไปใน container โดยที่
-spec:
-  containers:
-    - name: logstash
-      image: docker.elastic.co/logstash/logstash:7.2.0
-      volumeMounts:  //<-------####### เพิ่มตรงนี้ ไส่ภายใต้ image
-        - name: logstash-pipeline
-          mountPath: /usr/share/logstash/pipeline/logstash.conf  //<-----ชี้เข้าไปใน container
-          subPath: pipeline.conf
-
-ใน configMap ให้ ตัวแปร  name: logstash-pipeline  map กับไฟล์ใน yaml เราที่สามารถแก้ไข input filter output ได้จากไฟล์ yaml
- volumes:  <----ไส่ระดับเดียวกับ container
-    - name: logstash-pipeline  <<---จากส่วนบน
-      configMap:
-        name: logstash-config  <<--- ชื่อ configMap
-
-ส่วนของ configMap
-
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: logstash-config  <----ชื่อนี้ เอาไปใช้ข้างบน
-  namespace: elk
-data:
-  pipeline.conf: |
-    input {
-      stdin {}
-    }
-    filter {
-      # Add any filters you want here, e.g., grok, date, etc.
-    }
-    output {
-        elasticsearch {
-          hosts => "http://elasticsearch:9200"  //<---ชื่อ service name ของ elasticsearch
-        } 
-      }         
-
-
-#filebeat
-/usr/share/filebeat/filebeat.yml คือ path ใน container ที่จะใช้เป็นที่เก็บไฟล์ filebeat.yml
-
-
-data:
-  filebeat.yml: |
-    filebeat.inputs:
-     - type: container
-    paths:
-      - /var/log/container/*.log
-    processors:
-      - add_kubernetes_metadata:
-          host: ${NODE_NAME}
-          matchers:
-          - logs_path:
-              logs_path: "/var/log/containers/"
-
-    output.elasticsearch:
-      hosts: ["http://elasticsearch:9200"]
-      index: "filebeat-%{+yyyy.MM.dd}"
-
-
-
-
-
-plugin for kubernetes vscode
-  $ kubectl config get-contexts                                                                                                                                 ✘ 1
-  CURRENT   NAME             CLUSTER          AUTHINFO         NAMESPACE
-  *         docker-desktop   docker-desktop   docker-desktop
-  $ kubectl get nodes
-  NAME             STATUS   ROLES           AGE   VERSION
-  docker-desktop   Ready    control-plane   26d   v1.30.2
-//พร้อม
-
-ค้นหา plugin : Kubernetes (ของ microsoft) 
-   จะได้ icon kubernetes ที่เมนูซ้ายมือมา
-   จะเจอ node หรือว่า cluster ของเรา
-
-มันกดเข้าไปใน cluster > node > เลือก node เราซึ่งก็คือ docker-desktop กดดูตา มันจะโชว์ resource ด้วยว่าแต่ละตัวใช้ cpu ram เท่าไหร่ ไม่ต้องใช้ metrict
-
-
-
-
-
-kubectl exec -it pod/logstash-664f86cf4f-zbh9s -n elk -- /bin/sh
-echo "xx" | /usr/share/logstash/bin/logstash -f /usr/share/logstash/pipeline/basic-logstash.conf
-
-
-
-
- ## logstash
-   basic-logstash.conf: |
-    input {
-
-      beats {
-        port => 5044
-      }
-
-      http {
-          port => 8080
-          type => "http"
-      }
-
-      file {
-          path => ["/usr/share/logstash/input/basic-*.log"]
-          type => "file"
-      }
-    }
-
-    filter {
+      filter {
         grok {
-            pattern_definitions => {
-                "mynumber" => "(?:[+-]?(?:[0-9]+))"
+            patterns_dir => ["/usr/share/logstash/pattern/"]  <<----อ้างอิง pattern ของเราที่สร้างเอง (ข้างล่าง)
+
+            match => { "message" => "%{REDIS_MESSAGE_TIME:timestamp} %{REDIS_LOG_SYMBOL:log_symbol} %{GREEDYDATA:messages}" }
+        }
+
+        date {
+          match => ["timestamp", "ISO8601"]
+          target => "event_timestamp"
+        }
+
+        if "_grokparsefailure" in [tags] {
+          mutate {
+            add_field => { "parse_status" => "failed" }
+          }
+        }
+
+        mutate {
+          gsub => [ 
+            "messages", "^\s+|\s+$", ""
+            ,"log_symbol", "\s+", "" 
+          ]
+    
+          remove_field => ["agent","ecs","@version","tags","stream","host","timestamp","message"]
+        }
+
+        translate {   <<---- map ตัวแปรได้ด้วย
+          field => "log_symbol"  <--- ชื่อที่จะเช็ค
+          destination => "log_level"  <--- ชื่อใหม่
+          dictionary => {
+            "#" => "WARNING"
+            "*" => "INFO"
+            "-" => "DEBUG"
+            "+" => "TRACE"
+          }
+        }
+
+      }
+
+      output {
+
+          stdout{}
+
+          if [parse_status] == "failed" {
+            elasticsearch {
+              hosts => ["http://elasticsearch:9200"]
+              index => "log-failed-%{[appname][app]}-%{+yyyyMMdd}"
             }
-
-            patterns_dir => ["/usr/share/logstash/pattern"]
-
-            match => {
-                "message" => "%{mynumber2:num2}"
+          } else {
+            elasticsearch {
+              hosts => ["http://elasticsearch:9200"]
+              index => "log-%{[appname][app]}-%{+yyyyMMdd}"
             }
+          }
+        
+      }
+
+    mypattern.patterns: |
+      REDIS_MESSAGE_TIME %{MONTHDAY} %{MONTH} %{YEAR} %{TIME}
+      REDIS_LOG_SYMBOL [\#\*\-\+]
+
+---
+
+5. #service กำหนดการเข้าถึงต่างๆเช่นแบบ nodeport หรือว่า clusterIp ซึ่งต้อง port forward เอาเมื่อจะใช้
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: logstash
+    namespace: elk
+    labels:
+      app: logstash
+  spec:
+    selector:
+      app: logstash
+    ports:
+    - protocol: TCP
+      port: 5044
+      targetPort: 5044
+    type: ClusterIP  
+
+
+-------อธิบายโครงสร้าง yaml logstash -----
+
+
+
+--note--
+  grok มาจากคำว่า "grokking" ซึ่งหมายถึงการเข้าใจบางสิ่งอย่างลึกซึ้งและชัดเจน 
+  GeoIP (จีโอ ip) "geo" มาจากภาษากรีก ซึ่งหมายถึง "โลก" หรือ "พื้นดิน" เก็บ ip รอบพื้นโลก
+
+  # kv จับคู่แบบ key value
+    ตัวอย่าง log
+      time=2025-02-13T04:20:18.527Z level=INFO user_id=123 action
+
+      filter {
+        grok {}
+        kv {   //ไม่ได้อยู่ใน grok แต่ให้ grok ตัดตัวแปรส่งไปให้ได้
+          source => "message"
+          field_split => " "  #กลั้นคำด้วยช่องว่าง
+          value_split => "="  #ดึง key value ด้วย =
+          trim => "[]\""      # ตัด [ ] และ " ออกจากค่า
+
+          prefix => "log_"   # ตั้งชื่อ field เองได้
+          exclude_keys => ["debug", "session_id"] #ไม่เอาบางคอลัมป์
         }
-            
-    }
+      }
 
-    output {
-        stdout {
-        }
+    output จะได้
+      {
+        "time": "2025-02-13T04:20:18.527Z",
+        "level": "INFO",
+        "user_id": "123"  #อันที่ไม่ match จะไม่ถูกเก็บลงใน key และ logstash จะไม่หยุดทำงาน
+      }
 
-        file {
-            path => ["/usr/share/logstash/output/basic-%{type}-%{+yyyyMMdd}"]
-        }
 
-        elasticsearch {
-          hosts => "http://elasticsearch:9200" 
-          index => "toon-%{type}-%{+yyyyMMdd}"
-        }
-    }
-
-# Filter plugin = filter ทั้งหมด
-    grok มาจากคำว่า "grokking" ซึ่งหมายถึงการเข้าใจบางสิ่งอย่างลึกซึ้งและชัดเจน 
-    GeoIP (จีโอ ip) "geo" มาจากภาษากรีก ซึ่งหมายถึง "โลก" หรือ "พื้นดิน" เก็บ ip รอบพื้นโลก
-
-    ส่วนใหญ่ก็เอาไว้แปลง word นั้นแหละ ส่วน filebeat จะเอา remove event หลักๆ ส่วนตัวนี้เน้นจัดการ word ข้างในข้อความ มันก็ลบ filds ได้เหมือนกันและระเอียดกว่า
-
-    ใช้ grok pattern ที่เขาทำไว้สำหรับ java, redis หรืออื่นๆที่เป็น regex เอามาแปะสร้างเก็บไว้ใน folder source แล้วไปเรียกใช้ pattern นั้น
+ ----คำสั่ง-----
+kdd logstash -n elk //มันต้องลบก่อนเพราะกินแรมจัด ขึ้นพร้อมกันไม่ได้แรมไม่พอ ต้องลบออก่อน 
+k apply -f logstash.yaml //แล้วลงใหม่หมด
+kl app=logstash -n elk     

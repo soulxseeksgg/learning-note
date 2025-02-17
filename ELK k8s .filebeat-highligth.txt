@@ -2,227 +2,222 @@
 ____________         ___________        ________________          _________
 | filebeat |  --->> | logstash |  --->> | elasticsearch | --->>  | kibana |
                         
-
-#เข้า container ผ่าน command 
-  kubectl exec -it filebeat-589bb7446-67xbn -n elk -- /bin/sh
-#call
-  echo '{"log": "gg"}' | filebeat -e  //ไม่ไส่ -e ไม่ print
-
-   
-regsitry read log path จำบันทึึกไฟล์ล่าสุด
-  /usr/share/filebeat/data/registry/filebeat/data.json
-
-
-#ใช้หลาย input ได้แต่ออก output เดียว
-You can have as many inputs as you want but you can in filebeat
-Only a single output may be defined
+------------------ yaml ของ filebeat และคำอธิบาย----------------------
+  1.#set สิทธิ์การอ่าน pod
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    metadata:
+      name: filebeat-cluster-role 
+    rules:
+      - apiGroups: [""]  
+        resources: ["pods", "namespaces", "nodes"]    <------ การให้เข้าถึง resource ระดับใหน
+        verbs: ["list", "get","watch"]          <------ ให้ทำอะไรได้บ้าง
 
 
-link ลูกพี่ ที่ทำได้
-  https://discuss.elastic.co/t/reading-both-container-logs-and-host-logs-on-k8s/154683/3       
+  2.#มาคู่กับตัวผูกกฏกับ account 
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: filebeat-cluster-role-binding  
+    subjects:
+      - kind: ServiceAccount
+        name: default     <<---- ให้ account default ซึ่งเวลาสร้างถ้าไม่กำหนด container มันจะได้ user นี้อยู่แล้ว
+        namespace: elk
+    roleRef:
+      kind: ClusterRole
+      name: filebeat-cluster-role 
+      apiGroup: rbac.authorization.k8s.io
 
+  3. # การสร้าง pv ไว้เก็บ registry ให้มันอ่าน ไม่หายเวลาลบ pod สร้าง storage แบ่งจาก hd ออกมาไว้ก่อน 1 Gi
+    apiVersion: v1
+    kind: PersistentVolume
+    metadata:
+      name: filebeat-pv  <---- ชื่อ pv
+    spec:
+      capacity:
+        storage: 1Gi      <----- แบ่งมาไว้ 1 Gb
+      volumeMode: Filesystem
+      accessModes:
+        - ReadWriteOnce
+      persistentVolumeReclaimPolicy: Retain
+      storageClassName: hostpath   <---- อ้างอิงไปที่ hostpath storage ของ k8s มีคำสั่ง get ดู
+      hostPath:
+        path: /usr/share/filebeat/data/registry   <---- path เอาเหมือนกับ path จริงเลย จะได้ไม่งง
 
- type: kubernetes: ใช้เมื่อคุณต้องการดึงข้อมูลจาก Kubernetes pod ที่กำหนด โดยจะใช้ข้อมูลที่ Kubernetes API ให้ เช่น label, namespace หรือ pod name ในการตัดสินใจว่า container ไหนจะถูกเก็บ log
- condition: ใช้เงื่อนไขเพื่อกำหนดว่า container ใดบ้างที่จะถูกเลือก (ในตัวอย่างคือเลือก container ที่มี label app: myapp)
- config: กำหนดพาธที่ Filebeat จะค้นหาข้อมูล log ของ container  
+  ---
+  4. # มาคู่กับตัวขอเคลม
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: filebeat-pvc
+      namespace: elk 
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 1Gi   <---- ขอ 1 Gb
+      storageClassName: hostpath   <---- ขอเคลมไปที่ storage ก้อนนี้เดียวมันไปหา pv เอาเอง
+
+  ----
+  5. # deployment yaml
+    apiVersion: apps/v1  <<--- รายละเอียดตามข้างบน
+      kind: DaemonSet <<--- 1 node มี 1 pod
+      metadata:
+        name: filebeat
+        namespace: elk
+        labels:
+          app: filebeat
+      spec:
+        selector:
+          matchLabels:
+            app: filebeat
+        template:
+          metadata:
+            labels:
+              app: filebeat <<---- เอาไว้เรียกตอนคำสั่ง อ้าง -l
+          spec:
+            securityContext:
+              fsGroup: 0   <---- สิทธิ์ในการอ่าน volume
+              runAsUser: 0   <---- container นี้รันด้วย 1000 คือทั่วไป
+            containers:
+              - name: filebeat
+                image: docker.elastic.co/beats/filebeat:7.2.0   <---อ้างอิง image
+                resources:
+                  limits:
+                    cpu: 100m
+                    memory: 128Mi
+
+                env:
+                  - name: NODE_NAME   <---- ให้ container ดึงชื่อให้เก็บไว้ในตัวแปร NODE_NAME จะเอาไปใช้ข้างล่างได้ จะได้เชื่อ node มา
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: spec.nodeName
+                  - name: TZ
+                    value: "Asia/Bangkok"  <--- กำหนด timezone แม่งทำงานได้รึป่าวก็ไม่รู้
+              
+
+                volumeMounts:
+                  - name: filebeat-config
+                    mountPath: /usr/share/filebeat/filebeat.yml  <<---- อ้างอิงไปข้างล่าง file confimap
+                    subPath: filebeat.yml
+
+                  - name: varlog-containers
+                    mountPath: /var/log/containers   <<----- เอาไว้อ่าน log ที่ container เก็บของแต่ละ app มา
+
+                  - name: varlog-pods
+                    mountPath: /var/log/pods    <<----- เอาไว้อ่าน log ที่ pod เก็บของแต่ละ app มา จริงๆมันต่างจากข้างบน
+
+                  - name: docker-containers
+                    mountPath: /var/lib/docker/containers   <<----- อันนี้ก็ต่างไปอี๊กก สรุปแม่งอ่านตัวใหน น่าจะตัวแรก แต่เหมือนลบออกแล้ว discover ไม่ทำงาน
+
+                  - name: filebeat-registry
+                    mountPath: /usr/share/filebeat/data/registry  <<--- path เก็บ registry เอาไว้บันลึกไฟล์ว่าอ่านถึงใหนแล้ว  path จริง /usr/share/filebeat/data/registry/filebeat/data.json
+                  
+            volumes:
+              - name: filebeat-config
+                configMap:
+                  name: filebeat
+                  
+              - name: varlog-containers
+                hostPath:
+                  path: /var/log/containers
+                  type: Directory  
+
+              - name: varlog-pods
+                hostPath:
+                  path: /var/log/pods
+                  type: Directory
+
+              - name: docker-containers
+                hostPath:
+                  path: /var/lib/docker/containers
+                  type: Directory   
+
+              - name: filebeat-registry
+                persistentVolumeClaim:
+                  claimName: filebeat-pvc   <---- ใช้ pvc ที่สร้างไว้ในการเก็บ
+
+  6. # file config map
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: filebeat
+      namespace: elk
+    data:
+      filebeat.yml: |    <<---- file confimap ที่ 1
+        logging:
+          level: debug
+          selectors: [registrar]  <--- เปิดอ่าน log แบบสบายตา
+
+        filebeat.registry.flush: 10s  <---- ให้อ่าน registry เข้าไปดูทุก 10วิ ถ้ามีการเปลี่ยนแปลงให้ triger อ่าน log
+
+        filebeat.autodiscover:  <---- อ่าน log แบบหาเองตาม container
+          providers:
+            - type: kubernetes
+              host: ${NODE_NAME}
+              templates:
+                - condition:
+                    contains:
+                      kubernetes.labels.app: "myapp"
+                  config:
+                    - type: container
+                      paths:
+                        - /var/log/containers/*${data.kubernetes.container.id}.log  
+                      processors:
+                        - add_fields:  <---- เพิ่ม field ใหม่ได้
+                            target: "appname"
+                            fields:
+                              app: "myapp"
+                        - drop_fields:   <---- ดรอป fields ทิ้งก่อนส่งไป logstash
+                            fields: ["ecs","stream","agent","log.offset","@version"]
+                        - drop_event:    
+                            when:   <<--- ดรอปทิ้งทั้งก้อน ถ้าเจอไอ้ที่ไม่ใช่ log เช่นมันปริ้นคำว่า spring boot ใน log
+                              or:  
+                                - regexp:
+                                    message: "^\\W"    
+                                - regexp:
+                                    message: "^\\s*$"
+                - condition:
+                    contains:
+                      kubernetes.labels.app_kubernetes_io/instance: "my-redis"  <<---- แอพที่สอง
+                  config:
+                    - type: container
+                      paths:
+                        - /var/log/containers/*${data.kubernetes.container.id}.log   <--- เข้าไปอ่านตาม path ของ app      
+                      processors:
+                        - add_fields:
+                            target: "appname"
+                            fields:
+                              app: "redis"
+                        - drop_fields:
+                            fields: ["ecs","log.offset","host","input","kubernetes.labels","kubernetes.uid","kubernetes.statefulset","agent"]
+                        - drop_event:
+                            when:
+                              or:
+                                - regexp:
+                                    message: "^\\W"
+                                - regexp:
+                                    message: "^\\s*$"
+
+        output.logstash:  <<----- ใช้หลาย input ได้แต่ออก output เดียว 
+          hosts: ["logstash:5044"]  
+
+------------------ yaml ของ filebeat และคำอธิบาย----------------------
+
+ืnote
+  filebeat.autodiscover vs filebeat.inputs 
+  filebeat.autodiscover (หาชื่อเอง ระบุชื่อแอพได้ด้วย แต่ต้องสร้าง ClusterRole, ClusterRoleBinding) 
+  filebeat.inputs (ง่าย สั้น งานหยาบหน่อย) 
 
  
-#กำหนดสิทธ์ที่จะอ่าน
-ไฟล์ yaml ที่ใช้ติดตั้งพัฒนาจาก kubernetes
+# call แบบ stdin
+  #เข้า container ผ่าน command 
+    kubectl exec -it filebeat-589bb7446-67xbn -n elk -- /bin/sh
+  #call
+    echo '{"log": "gg"}' | filebeat -e  //ไม่ไส่ -e ไม่ print
 
-API Group มีทั้งหมด 2 แบบหลัก ๆ
-  1.ไม่มีชื่อ API group ใช้ apiVersion: v1
-    ใช้กับตอนสร้าง resource ง่ายๆ ระดับพื้นฐาน
-      Pod
-      Service
-      Node
-      Namespace
-      ConfigMap
-      Secret
-      PersistentVolume (PV)
-      PersistentVolumeClaim (PVC)
-
-   2. แบบใช้ชื่อรูปแบบ apiVersion: <group>/<version>  //ตรง version ส่วนใหญ่จะเป็น v1 เสมอ
-      group แบ่งออกเป็น
-      แบ่งเป็นหลายกลุ่ม เช่น:
-        apps → ใช้กับ Deployment, DaemonSet, StatefulSet
-        batch → ใช้กับ Job, CronJob
-        networking.k8s.io → ใช้กับ Ingress, NetworkPolicy
-        rbac.authorization.k8s.io → (rbac คือ  Role-Based Access Control) ใช้กับ Role, RoleBinding, ClusterRole, ClusterRoleBinding
-        policy → ใช้กับ PodSecurityPolicy
-        storage.k8s.io → ใช้กับ StorageClass, VolumeAttachment
-        autoscaling → ใช้กับ HorizontalPodAutoscaler
-        apiextensions.k8s.io → ใช้กับ CustomResourceDefinition (CRD)
-        admissionregistration.k8s.io → ใช้กับ ValidatingWebhookConfiguration, MutatingWebhookConfiguration
-
-
-          #ขยายความของ app
-          kind: DaemonSet  # kind แบบ 1 pod ต่อ 1 node 
-          # ไม่ใช้ ReplicaSet เพราะไม่ต้องกำหนดจำนวน replicas
-          # ถ้ามี Node ใหม่เกิดขึ้น → DaemonSet จะสร้าง Pod ให้ทันที 
-          # เหมาะกับ filebeat, fluentd (ให้ทุก Node มีตัวเก็บ logs)
-
-          kind: Deployment #สร้าง หลายๆ Pod ที่ scale ได้และแทนที่เวอร์ชันเก่าอัตโนมัติ
-            พฤติกรรม:
-              # ใช้ ReplicaSet ควบคุมจำนวน replicas
-              # มี Rolling Update (อัปเกรด Pod แบบไม่มี downtime)
-              # Stateless Applications เช่น Web Server, API Service ไม่ได้จำค่ารับค่าใหม่เสมอเช่นแอพ api ,  Backend Service ที่ scale ได้อิสระ
-
-          Kind: StatefulSet #Pod แต่ละตัวต้องมี ชื่อและ storage คงที่
-              พฤติกรรม:
-              # Pod แต่ละตัวจะมีเลขลำดับ (my-pod-0, my-pod-1, my-pod-2)
-              # Pod ไม่ได้สร้างพร้อมกัน แต่สร้างทีละตัว ตามลำดับ
-              # Pod ถูกลบไป → จะถูกสร้างใหม่โดยใช้ชื่อเดิม
-              # เหมาะกับ Stateful Applications เช่น Database, Zookeeper, Kafka
-              ตัวอย่างการใช้งาน:
-              Database เช่น MySQL, PostgreSQL, MongoDB
-              Distributed Systems เช่น Zookeeper, Kafka
-
-            +-------------------------+-------------------------+-------------------------+-------------------------+
-            |        Feature          |        DaemonSet        |       Deployment        |      StatefulSet        |
-            +-------------------------+-------------------------+-------------------------+-------------------------+
-            |        จำนวน Pod        |       1 ต่อ Node         |        ตาม replicas     |       ตาม replicas      |
-            +-------------------------+-------------------------+-------------------------+-------------------------+
-            |      ใช้ ReplicaSet?     |           ❌            |           ✅             |           ❌            |
-            +-------------------------+-------------------------+-------------------------+-------------------------+
-            |        Scaling          |     เพิ่มลดตาม Node       |          อิสระ           |       ตาม replicas      |
-            +-------------------------+-------------------------+-------------------------+-------------------------+
-            |       Pod Identity      |        ไม่สนใจชื่อ         |        ไม่สนใจชื่อ         |  มีลำดับชื่อ (pod-0, pod-1) |
-            +-------------------------+-------------------------+-------------------------+-------------------------+
-            |      Rolling Update     |           ใช่            |           ใช่            |     ใช่ (แต่ทีละตัว)        |
-            +-------------------------+-------------------------+-------------------------+-------------------------+
-            |        ใช้กับอะไร?        | Agents, Log Collector   | Web, API, Backend       | DB, Kafka, Zookeeper    |
-            +-------------------------+-------------------------+-------------------------+-------------------------+
-
-        ขยายความตรง RBAC (Role-Based Access Control)
-          🔹 ประกอบด้วย
-          Role / ClusterRole → กำหนดสิทธิ์ (เช่น อ่าน/เขียน Pods)
-          RoleBinding / ClusterRoleBinding → ผูกสิทธิ์ให้กับ Users, Groups หรือ ServiceAccounts
-          Subjects → ผู้ใช้งาน (User, Group, ServiceAccount)
-          Verbs → กำหนดว่าอนุญาตให้ทำอะไร (เช่น get, list, create, delete)
-          Resources → ระบุว่าให้สิทธิ์กับอะไร (เช่น pods, deployments, services)  
-
-          เช่นตัวอย่างคำสั่งในไฟล์ yaml
-          rules: //ระดับเดียวกับ kind
-            - apiGroups: [""]  # ไม่ไส่เพราะควบคุมระดับเล็ก pod มันไม่ได้สังกัด group
-              resources: ["pods"]  # บอก resource ที่ต้องกำหนดสิทธิ์
-              verbs: ["list", "get"] #ดูและอ่านพอ    
-
-
-#กำหนดสิทธิ์
-apiVersion: rbac.authorization.k8s.io/v1  
-kind: ClusterRole 
-metadata:
-  name: filebeat-cluster-role  # กำหนดชื่อของ ClusterRole
-rules:
-  - apiGroups: [""]  # กำหนดประเภท apiGroups (ในที่นี้ pod มันไม่ได้สังกัด group ใดเลยไม่ต้องไส่)
-    resources: ["pods"]  # ระบุ resource ที่ต้องการให้สิทธิ์ เช่น pods อ้างอิงไปที่ pods
-    verbs: ["list", "get"]  # คำสั่ง (verbs) ที่อนุญาตให้ทำได้
-
-
-#กำหนด role
-  apiVersion: rbac.authorization.k8s.io/v1
-  kind: ClusterRoleBinding
-  metadata:
-    name: filebeat-cluster-role-binding  # ชื่อของ ClusterRoleBinding
-  subjects:
-    - kind: ServiceAccount
-      name: default  # user ในการรับสิทธิ์ ( ถ้าไม่กำหนด ServiceAccount จะได้ชื่อเป็น default )
-      namespace: elk # namespace ในการรับสิทธิ์ ให้อ่าน pod ตามสิิทธ์ในคำสั่งแรก
-  roleRef:
-    kind: ClusterRole  #อ้างอิงไปที่กฏที่สร้างไว้
-    name: filebeat-cluster-role  # อ้างอิงชื่อ ClusterRole
-    apiGroup: rbac.authorization.k8s.io
-      
-
-สร้างไฟล์ yaml เอง มันแสดงถึงความโปรใช่ไหม
-ใช่, การสร้างไฟล์ YAML เองและปรับแต่งให้ตรงกับความต้องการแสดงถึงความเข้าใจลึกซึ้งในระบบและการควบคุมที่ดีกว่า ซึ่งสามารถแสดงถึงความ โปร ในการจัดการ Kubernetes และการตั้งค่าระบบต่างๆ อย่างละเอียด.
-การทำเช่นนี้ไม่เพียงแต่ทำให้เราสามารถควบคุมการตั้งค่าทุกอย่างได้ แต่ยังสามารถเข้าใจแนวทางการทำงานของ Kubernetes ได้ลึกขึ้น, ซึ่งเป็นสิ่งที่สำคัญในมุมมองของโปรแกรมเมอร์ที่มีประสบการณ์.      
-
-
-สิทธิการเข้าถึงไฟล์
-securityContext:
-  fsGroup: 0   // สิทธิการเข้าถึงไฟล์จาก volumne ใช้ใช้ 0 คืออ่านไฟล์ root ได้แค่นี้ก็เพียงพอสำหรับ filebeat ไม่ต้องให้ container เป็น root เหมือนข้างล่าง
-  runAsUser: 0  // ทำให้ container เป็น root ทำอะไรได้หมด
-
-สิทธิเข้าถึง pod
-rules:
-  - apiGroups: [""]  
-    resources: ["pods", "namespaces", "nodes"] 
-    verbs: ["list", "get","watch"]
-
-
-#Processors (ประมวลผลข้อมูล) คือการประมวลผลก่อนส่งออกไป Logstash
-    มี
-    processors:
-      - add_kubernetes_metadata:
-          in_cluster: true  //<<<---- จะต้องเยื่องเข้าไปใต้คำดีๆ ไม่ได้นับจาก - เฉพาะของไฟล์ configmap ที่มันใช้ inclund มันต้องเป๊ะ ไม่เหมือนกับข้างบน
-
-    processors:
-      - add_fields: //เพิ่ม fileds ใหม่
-          fields:
-            app_type: "myapp"
-
-    processors:
-      - drop_fields:  //ลบออกแค่บาง tag
-          fields: ["host"]
-
-    processors:
-      - rename:
-          fields:
-            - from: "kubernetes.namespace"
-              to: "namespace"
-
-    ----------
-    processors:
-      - drop_event:  //ลบแม่งออกทั้งชุดของ event ขอแค่ where ให้ถูก 
-          when:
-            and
-              equals/regexp  https://www.elastic.co/guide/en/beats/filebeat/current/defining-processors.html#conditions
-                message: "test"      
-              matches
-                message: '^[a-zA-Z]+$'
-
-
-    "harvester" (ฮาเวสเตอร์) หมายถึง ผู้เก็บเกี่ยว 
-    Discover หมายถึง ค้นพบ การค้นหา
-
-----------------------------------------
-filebeat.autodiscover vs filebeat.inputs 
-filebeat.autodiscover (หาชื่อเอง ระบุชื่อแอพได้ด้วย แต่ต้องสร้าง ClusterRole, ClusterRoleBinding) 
-filebeat.inputs (ง่าย สั้น งานหยาบหน่อย) 
-เลือกอันใดอันหนึ่ง
-
-  filebeat.autodiscover:
-      providers:
-        - type: kubernetes
-          host: ${NODE_NAME}
-          templates:
-            - condition:
-                contains:
-                  kubernetes.labels.app: "myapp"
-              config:
-                - type: container
-                  paths:
-                    - /var/log/containers/*${data.kubernetes.container.id}.log
-
-    filebeat.inputs: 
-      - type: container
-        paths:
-          - /var/log/containers/*.log  
-----------------------------------------
-#restart redis helm chart
-
-NAME                                 READY   AGE
-statefulset.apps/my-redis-master     1/1     5d20h
-statefulset.apps/my-redis-replicas   0/0     5d20h
-
-kubectl rollout restart statefulset my-redis-master -n redis
-statefulset.apps/my-redis-master restarted
-
-
-----------
-คำสั่ง
-k apply -f filebeat.yaml
-krds filebeat -n elk
-kgat
+----คำสั่ง-----
+k apply -f filebeat.yaml   //ไม่ต้องลบ
+krds filebeat -n elk   //restart เอาเลย
+kl app=filebeat -nelk

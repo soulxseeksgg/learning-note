@@ -1,0 +1,5 @@
+
+#Redis 
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm uninstall my-redis bitnami/redis --version 20.7.0 --set redis.config.loglevel=debug -n redis
+helm install my-redis bitnami/redis --version 20.7.0 --set architecture=standalone,redis.config.loglevel=debug -n redis

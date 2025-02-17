@@ -143,3 +143,6 @@ git reset ตามด้วยชื่อไฟล์
 เลิกแทร๊กไฟล์
 เอาไฟล์ที่ไม่อยากได้ไปไส่ใน .gitignore
 git rm --cached <file_name>
+
+เปลี่ยนชื่อ remote
+git remote rename old-name new-name

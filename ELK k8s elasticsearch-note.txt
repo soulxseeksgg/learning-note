@@ -2,7 +2,35 @@
 k get all -n elk
 k delete statefulset.apps/es-cluster -n elk
 
-
+ใช้ "" ครอบใน curl
 curl -X GET "localhost:9200/_cat/indices?h=index" 
             ^
             call ผ่าน curl ต้องไส่ "" 
+
+เอาที่ขึ้นต้นด้วย log-*
+http://localhost:9200/_cat/indices/log-*?h=index
+
+
+ ----คำสั่ง-----
+    k apply -f elasticsearch.yaml 
+    kl app=elasticsearch -n elk    
+
+คำสั่งลบ
+    kdss elasticsearch -n elk 
+
+คำสั่ง restart
+    krss elasticsearch -n elk
+
+คำสั่ง port-forward
+    k port-forward svc/elasticsearch -n elk 9200:9200
+
+
+call query index ใน postman
+    ลบ
+    DELETE http://localhost:9200/log-* 
+
+    ค้นหา index
+    GET http://localhost:9200/_cat/indices/log-*?h=index
+
+    query by index
+    GET http://localhost:9200/log-redis-20250215/_search

@@ -85,7 +85,7 @@ kubectl apply -f myapp-secret.yaml //set secret
 
     redis
        host คือ servicename.namespace   
-       password: คำสั่ง k get secret -n redis -o yaml | grep เอา ถ้ามันยาว 
+       password: คำสั่ง k get secret -n redis -o yaml | grep password
        port เอาจากคำสั่ง get all 
     
 

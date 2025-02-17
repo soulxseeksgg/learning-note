@@ -12,12 +12,21 @@
 3. ทำให้หน้าแรกเป็น .md
   เปลี่ยนชื่อมันเป็น index.md  สามารถเรียกโดยผ่าน localhost:3000
 
-4. เพิ่มรูป
+4. เพิ่มรูปใน pages > index.md (ซึ่งเป็นหน้าแรก)
   ![Docusaurus logo](/img/docusaurus.png)   
 
-5. run
+
+5. ใช้เว็บ draw io และ import file ที่เราเคยสร้างไว้เข้าไป
+    ทำอะไรก็ทำในนั้น Docusaurus มีหน้าที่แปะรูปเฉยๆและเอาขึ้นเว็บ
+    save flowchat เป็น .svg > project ducusaurus เรา > static > img  
+    //แล้วเวลาแก้ที่เว็บ draw.io มันอัพเดทบนเว็บให้เลย ตอนรัน localhost amazing!
+
+6. run (แบบ localhost)  
     npm start
 
-6. deploy
+8. commit push code ขึ้น git ก่อน แล้วค่อย deploy (มันจะไปดึง brance จาก main ไปทำเป็น pages)
+
+7. deploy (เอาขึ้น pulic)
     GIT_USER=soulxseeksgg USE_SSH=true npm run deploy    
 
+  web public : https://soulxseeksgg.github.io/docusaurus-my-project-structure/
