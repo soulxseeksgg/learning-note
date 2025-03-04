@@ -1,3 +1,13 @@
+การใช้ .js ต่อท้ายในเทคโนโลยีต่าง ๆ
+คำว่า ".js" จริง ๆ แล้วมัน ไม่ได้เป็นส่วนที่บ่งบอกถึงความสามารถ ของเครื่องมือหรือ framework แต่เป็นการบ่งบอกว่าเครื่องมือนั้น ๆ ใช้ JavaScript เป็นภาษาหลักในการพัฒนา
+ทั้งใน node.js ทั้งที่เป็นตัว runtime และรวมไปถึง frawork ทั้งหลาย เช่น angular.js , react.js, Vue.js 
+
+JavaScript (1995) – ภาษาโปรแกรมหลัก
+jQuery.js (2006) – JavaScript library
+Node.js (2009) – JavaScript runtime (ฝั่งเซิร์ฟเวอร์)
+Angular.js (2010) – JavaScript framework (frontend)
+
+
 bootstrap5 เป็นต้นไป เป็น javascript เพียวๆ ไม่มี jquery ผสม ลด dependency ไปได้เยอะ
 bootstrap พัฒนาจากทีมของ twitter ชื่อเดิมคือ twitter blueprint และเปิดให้เป็น Open source ชื่อ BootStrap Framework
 Anguar project > Node > npm > ตอนลง bootstrap เลยต้องใช้ npm

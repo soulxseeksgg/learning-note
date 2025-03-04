@@ -1,0 +1,27 @@
+1. load และรันคำสั่ง docker run postgres
+2.load project in spring initailizer
+3.แก้ชื่อไฟล์ properties เป็น yaml
+4.สร้าง folder config
+5.สร้างไฟล์ SecurityConfig
+6.สร้าง folder exception
+7 สร้างไฟล์ BaseException (เป็นไทป์ Exception สีทอง) แก้ extends เป็น Exception
+8 สร้างไฟล์ UserException Extends เป็น BaseException  
+  แล้วสร้าง method ที่ return หาตัวเอง
+9 สร้าง class ErrorAdvisor
+  มี @ControlerAdvice
+  มี public static class ที่เอาไว้เก็บ ErrorResponse
+  แล้วค่อยทำตัว handleExeption ที่ใช้ (BaseException e)
+  เรียก ErrorResponse 
+  set response
+  return ResponseEntity 
+10 สร้าง folder entity
+11 สร้าง BaseEntity
+12 สร้าง User extend BaseEntity
+13 สร้าง folder repository
+14 สร้าง Userrepositoty ที่เป็น interface
+15 สร้าง folder service
+16 สร้างไฟล์ Userservice construtor UserRepository
+17 สร้าง foler UserBusiness พร้อมทั้งไฟล์ UserBusiness
+18 สร้าง folder api พร้อมทั้งสร้างส่วนของ api
+19 ไป config ในไฟล์ yaml เพื่อต่อ database  
+    

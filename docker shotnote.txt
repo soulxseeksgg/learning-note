@@ -32,3 +32,6 @@ docker run -d --name common  common:latest ???
 
 ใช้คำสั่ง docker container ls ดูได้
 หรือใช้ docker container ls -a ดูแม้ว่า container จะหยุดทำงาน
+
+รัน postgres
+docker run —name postgresggx -e POSTGRES_PASSWORD=syspass -p 5432:5432 -d postgres

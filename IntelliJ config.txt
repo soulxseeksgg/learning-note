@@ -1,0 +1,58 @@
+shotkey
+cmd+1  (พิมพ์ค้นหาได้ด้วย แค่พิมพ์ไปเลย เช่น pom มันจะ link ไปไฟล์นั้นให้เลย) --> go to file list in project windows
+esc คือออกจากหน้าควบคุมอื่น เช่น เข้า plugin อยู่ก็กด esc มันก็กลับมาที่หน้าโค๊ดไวๆเลย
+cmd+B ดูว่ามีใครใช้มันบ้าง ขึ้นมาเป็น list เลย
+
+
+แก้ lombox "java: cannot find symbol"
+Intellij Idea -> Preferences -> Compiler -> Annotation Processors
+
+#แก้
+ต้อง comment ตัว Annotation Processors ใน build ไปกดแล้วกด maven > reload project > กดรันได้เลย แล้วค่อยเอา comment กลับ
+
+ความสัมพันธ์ระหว่าง IntelliJ IDEA กับ annotationProcessorPaths ใน pom.xml
+ใน IntelliJ IDEA
+เมื่อคุณติ๊กเลือก Enable annotation processing ใน Preferences -> Compiler -> Annotation Processors มันจะทำให้ IntelliJ IDEA สามารถใช้ annotation processors เช่น Lombok ขณะ compile โค้ดใน IDE ได้เลย
+
+IntelliJ IDEA จะช่วยให้คุณเห็นผลลัพธ์ของการใช้ Lombok (@Getter, @Setter) ได้ทันทีขณะเขียนโค้ด
+ไม่จำเป็นต้องเพิ่ม annotationProcessorPaths ใน pom.xml ถ้าคุณทำแค่ใน IDE เพราะ IntelliJ จัดการให้คุณได้
+
+ใน Maven/GitLab
+แต่สำหรับ Maven หรือ CI/CD pipeline (เช่น GitLab CI) ต้อง กำหนด annotationProcessorPaths ใน pom.xml ด้วย
+
+เพราะ Maven หรือ GitLab CI ไม่สามารถอ้างอิง IDE ได้ จึงต้องตั้งค่า annotation processor ในไฟล์ pom.xml โดยตรง
+การตั้งค่าใน pom.xml จะทำให้ Maven รู้จัก Lombok และเรียกใช้มันในการ compile แบบเดียวกับ IntelliJ IDEA
+
+<scope> บอกว่า dependency จะถูกใช้งานในขั้นตอนใหนบ้าง
++------------+--------------+-------------+----------------+---------------+
+|  Scope     | ใช้ตอน Compile | ใช้ตอน Runtime | ติดไปกับ JAR/WAR | ใช้ใน Test ไหม |
++------------+--------------+-------------+----------------+---------------+
+| compile    | ✅           | ✅          | ✅             | ✅            |
+| provided   | ✅           | ❌          | ❌             | ✅            |
+| runtime    | ❌           | ✅          | ✅             | ✅            |
+| test       | ❌           | ❌          | ❌             | ✅            |
+| system     | ✅           | ✅          | ❌             | ✅            |
+| import     | -            | -           | -              | -             |
++------------+--------------+-------------+----------------+---------------+
+
+เปรียบเทียบกับหุ่นยนต์
+ถ้าคิดว่าโปรแกรมเป็นหุ่นยนต์ ก็เปรียบเทียบได้แบบนี้:
+
+compile → ชิ้นส่วนหลักที่ต้องมีตั้งแต่สร้างหุ่นยนต์ (เฟรม, มอเตอร์, เซ็นเซอร์)
+provided → ซอฟต์แวร์ที่มีอยู่แล้วในโรงงาน ไม่ต้องติดไปด้วย (เช่น ระบบปฏิบัติการที่มีในโรงงานอยู่แล้ว)
+runtime → พลังงานที่ไม่ได้ใช้ตอนประกอบ แต่ต้องมีตอนเปิดเครื่อง (เช่น แบตเตอรี่ที่ใส่หลังประกอบเสร็จ)
+test → อุปกรณ์ใช้ทดสอบ แต่ไม่ได้ติดไปกับหุ่นยนต์ที่ส่งให้ลูกค้า (เช่น เครื่องมือวัด, สายตรวจสอบ, debug tools)
+ทำไมต้องแยก compile กับ runtime?
+เพราะบาง dependency ใช้แค่ตอน build แต่ไม่จำเป็นต้องอยู่ใน JAR/WAR ที่ deploy ไป production เช่น
+
+Lombok ใช้สร้าง getter/setter ตอน compile พอ build เสร็จ code ก็มี method พวกนี้แล้ว ไม่ต้องพก Lombok ไปด้วย
+Servlet API (เช่น javax.servlet-api) ตอนรันจริง ๆ เซิร์ฟเวอร์มีให้แล้ว ไม่ต้องเอาติดไปอีก
+ส่วนพวกที่ต้องการ runtime จริง ๆ ก็ต้องอยู่ในไฟล์ JAR/WAR เช่น
+
+MySQL Driver ต้องมีตอนรันเพราะใช้เชื่อมฐานข้อมูล
+Spring Core ต้องอยู่ เพราะ framework ต้องใช้ตลอดเวลาที่รัน
+
+แม้ว่าเรา กำหนด scope เป็น provided สำหรับ Lombok ใน dependency แต่ scope นั้นแค่บอก Maven ว่าจะ ไม่ใส่ Lombok ใน JAR ที่จะถูก deploy (หมายความว่า Lombok ไม่จำเป็นต้องอยู่ในไฟล์ที่ deploy แต่ต้องการแค่ตอน compile)
+annotationProcessorPaths คืออะไรในที่นี้?
+annotationProcessorPaths ต้องการให้ Maven รู้ว่า Lombok เป็น annotation processor ที่จะช่วย generate โค้ด (เช่น getter, setter, constructor) ตอน compile ดังนั้นมันต้องถูกตั้งค่าแยกต่างหากใน plugin configuration โดยเฉพาะกับ maven-compiler-plugin เพื่อให้ Maven สามารถใช้ Lombok ในขั้นตอน compile ได้
+

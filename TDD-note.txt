@@ -1,0 +1,215 @@
+ประวัติ
+  Test-Driven Development (TDD) เป็นแนวทางในการพัฒนาซอฟต์แวร์ที่เน้นการเขียนเทสต์ก่อน แล้วจึงพัฒนาโค้ดให้ผ่านเทสต์เหล่านั้น แนวคิดนี้ช่วยให้โค้ดมีคุณภาพสูงขึ้น ลดข้อผิดพลาด และส่งเสริมการออกแบบที่ดี
+โดย Kent Beck เป็นผู้ริเริ่มแนวคิดนี้ในช่วงปลายยุค 1990s
+และได้เผยแพร่แนวทางนี้ในหนังสือ Test-Driven Development: By Example (2002)
+  ถ้าคุณมีชุดของการทดสอบที่น่าเชื่อถือได้
+แล้วทำให้คุณจะไม่กลัวการแก้ไข code
+มันจะส่งผลให้คุณกล้าแก้ไข code ที่แย่ๆ ให้มันดีขึ้น
+โดยที่เมื่อแก้ไขเสร็จแล้ว ให้ทำการทดสอบทั้งหมดว่ามันผ่านหรือไม่
+ถ้าผ่านทั้งหมดเรามั่นใจได้ว่า การเปลี่ยนแปลงของเรามันดีล่ะ
+ดังนั้น ชุดของการทดสอบมันก็น่าจะช่วยให้คุณกล้าต่อการแก้ไขใช่ไหม ?
+ดังนั้น ถ้าคุณต้องการให้ระบบงานที่คุณพัฒนามันยึดหยุ่นแล้ว
+ก็ควรต้องมีชุดของการทดสอบใช่ไหม ?
+  แต่ถ้าระบบงานของคุณมีการออกแบบที่สวยงาม
+มี architecture ที่สมบูรณ์แบบ
+แต่ไม่สามารถทดสอบ หรือ ไม่มีชุดการทดสอบแล้ว
+คุณก็ยังคงกลัวต่อการแก้ไขใช่ไหม ? // basic จัดๆ
+
+บัค ตัวเดียวกัน แต่ถ้าเราเจอที่ produntion มูลค่าของแมลงตัวเดียวกันจะใหญ่ขึ้น
+https://youtu.be/TxMDkgmsGd0?si=BP1yGOMH-U4d4ypR&t=1094 
+tester กับ developer เถียงกันว่าบัคไม่บัค (ไปใช้ TDD เถอะ)
+https://youtu.be/TxMDkgmsGd0?si=TNeW_lK0YTXLP1vH&t=1280 
+quarity ที่ดีคืออะไรต้องตกลงกัน
+https://youtu.be/TxMDkgmsGd0?si=Jv7vVlEdoGpJnjHO&t=2187 
+เสร็จคืออะไร ต้องตกลงกัน
+https://youtu.be/TxMDkgmsGd0?si=AfmFdJJRV_FPxpk2&t=2229 
+นี้คือเหตุผลที่ต้องหา bug ให้เจอ ให้เร็วที่สุดเท่าที่จะทำได้ ตั้งแต่ dev ยิ่งดี ตั้งแต่ทำ spec ตั้งแต่คุยกัน
+https://youtu.be/TxMDkgmsGd0?si=ufbHa_fPKCFvG6FS&t=1490 
+มันปกติอยู่แล้ว มันไม่ปกติ
+https://youtu.be/TxMDkgmsGd0?si=dtrPU_paGsxg_TjB&t=1532 
+deadline เจ้ากรรม นี้ไง
+https://youtu.be/TxMDkgmsGd0?si=zC-bCS_JUqaEaCoj&t=1556
+โปรเจคหน้าก็มี deadline อยู่แล้ว 
+https://youtu.be/TxMDkgmsGd0?si=C54TRD8fguHI6LR9&t=1644
+เทสอะไรบ้างเอาตั้งแต่ v model ตั้งแต่คุยกันครั้งแรก
+https://youtu.be/TxMDkgmsGd0?si=O4f2PodTMQOp_AzZ&t=1694
+ปัญหาแรกเลย requement ไม่ชัด  มีเฟส analzy มีเฟสการคุยกัน แต่พอส่งงานบอกว่า requestment ไม่ชัด
+https://youtu.be/TxMDkgmsGd0?si=5cnm7ihRpZVcXoOQ&t=1720 
+(ระดับ requestment BA กับลูกค้า) requestment แต่ละข้อต้องส่งมอบด้วยเงื่อนไขอะไรบ้าง เราต้องแปะ BA (เจ้าของ requestment) กับ ลูกค้าต้องเข้าใจร่วมกัน 
+https://youtu.be/TxMDkgmsGd0?si=XvxUgnBAbhOxzZyP&t=1766
+(infra vs dev team) ต้องคุยกับทีม infra vs ทีม dev จะมั่นใจได้ยังไงว่าโปรแกรมทำงานได้ เมื่อขึ้นไป เรามักจะทำตอนที่ deploy ทีเดียว มันต้องคุยตกลงกันก่อนตั้งแตกแรก
+https://youtu.be/TxMDkgmsGd0?si=SnSfc49JOBg4UaZw&t=1796
+(design vs dev) requement แตกออกมาเป็นราย function และทีม design ว่าทำยังไงว่าครบ ไม่ผิด จะเทสยังไง มันต้องกำหนดรายละเอียดกันให้ครบ
+https://youtu.be/TxMDkgmsGd0?si=3gQqPsNVsFWRF8Sf&t=1821
+(dev vs unit test) งานย่อยๆ ภายใต้ function เป็นเทสของตัวเองก็ต้องมีข้อตกลงว่าจะเอาอะไร มี output แบบใหนข้อตกลงเพื่อจะทำตาม TDD
+https://youtu.be/TxMDkgmsGd0?si=pcXZmkI9FG4zgwcn&t=1853
+แต่ในความเป็นการพัฒนาจะเป็น V & V model 
+   รับ requestment สร้าง เทส เอาขึ้น ส่งมอบ เหมือนตัว W จะไปพังตรงใหนก็ได้เพราะมันไม่ได้คุยกันตั้งแต่แรกทั้งสองฝั่ง ตีกันอยู่นั้นแหละ เกี่ยงกันไปรอกันมา
+https://youtu.be/TxMDkgmsGd0?si=uTiBzabyV2q4P2MU&t=1884   
+accesstance test-driven development (เหมือนแบบ access ก็คือคุยกันก่อนทั้งหมดค่อยทำ ตกลงกันก่อนให้หมด)
+https://youtu.be/TxMDkgmsGd0?si=4usVi_MbHwvMovCZ&t=1938 
+คนที่เกี่ยวข้อง คนที่มีสกิล หรือว่าคนที่มีบทบาทที่สำคัญกับการ deliver หรือว่าการส่งมอบ software
+https://youtu.be/TxMDkgmsGd0?si=UXzFeAXhPJqxdkkw&t=2028 
+เมื่อเราขับเคลื่อนด้วย deadline อย่างแรกที่จะตัดทิ้งเลยคือ quierty มากำหนดว่า quirity ที่ดีคืออะไรและ improfe ไปเรื่อยๆขึ้นข้างบน
+https://youtu.be/TxMDkgmsGd0?si=BtC2IRJwrLMNLo8Z&t=2188 
+ค่อยๆสร้าง สร้างอย่างมีคุณภาพ (ตั้งแต่ระดับ feature 1 เอาให้เขียว)
+https://youtu.be/TxMDkgmsGd0?si=KsSvEmPcKAdxAzpO&t=2215 
+feature มันเยอะมากขึ้นเรื่อยๆเทสอันเก่าไม่ไหวเลยต้องเอา automate test มาไส่ข้างล่างให้มันนิ่งที่สุด เพราะ feature มีมากขึ้นแต่เวลาหรือคนเทสมีเท่าเดิมหรืออาจจะน้อยลง
+https://youtu.be/TxMDkgmsGd0?si=DmNTC2ykLVYmhjXM&t=2478
+ทำ muaul แค่ิส่งใหม่ๆที่ยังไม่ผ่านการกรองแบบจริงจัง ส่วนอันเก่าข้างล่างที่เป็นตะกอนก็ใช้ automate test ไป เพราะมันผ่านการตรวจสอบว่าถูกต้องแล้ว
+https://youtu.be/TxMDkgmsGd0?si=FBA6TyTCjR9qky00&t=2520
+ใครทำ
+https://youtu.be/TxMDkgmsGd0?si=PM0fpPBo0kuWa_TC&t=2820
+developer, manaul tester, automate tester
+https://youtu.be/TxMDkgmsGd0?si=X39w9glFibg-D-9v&t=2845 
+ระดับการเทส
+https://youtu.be/TxMDkgmsGd0?si=aBIr-uIbjaEL21wn&t=2916
+ประเด็นการเทสระดับบนใช้ UI เยอะ ต้องเตรียมอะไรเยอะ
+ดันลงมาให้เป็นระดับล่างมากที่สุดเท่าที่จะทำได้ ไอ้เดีย
+https://youtu.be/TxMDkgmsGd0?si=H095oMrnsZ7a7re0&t=2959
+เปลี่ยน mindset ที่จากเดิมพยายามหา bug ให้ได้มากที่สุด  (พยายามเบรค software ไม่ให้ไปต่อ)
+เปลี่ยนเป็นการหา (การหามันใช้เวลานานเกินไป ก็เลยต้องมา focus ที่ระดับ unit test ให้มากที่สุด) เปลี่ยนเป็นเราจะมอบ software ของเรายังไงให้ success!! 
+ทั้งทีม focus software ให้มีคุณภาพมากกว่าจะมาค้นหาโน้นนี้นั้น
+https://youtu.be/TxMDkgmsGd0?si=cNxlg34kZmwZvPn6&t=3022
+เหตุการณ์ที่มักเจอ ทีมเทสแยกกันทำงาน ตั้งแต่ automate,manaul,develop  แยกกันไม่ทำงานร่วมกัน ต่างฝ่ายต่างเทสดูเหมือนจะดีแต่มันมีครอสที่สูงบางทีทดสอบซ้ำในเคสเดิมๆ ไม่ได้เกิดการพัฒนาเป็นทีมเลยต่างคนต่างทำ หัวใจของการทำงานก็คือเราพยายามสร้าง driver team (เหมือนเป็นก้อนเดียวกัน)
+https://youtu.be/TxMDkgmsGd0?si=WNLLpgfFdXpHgYUz&t=3118
+ไม่ใช่ว่าต้องทำ แต่ต้องรู้ว่าจริงๆแล้วปัญหาคืออะไร สาเหตุของปัญหาคืออะไรทำไม หา how แล้วค่อยไปลงเครื่องมือ ดังนั้นการพูดคุยสำคัญมากๆ ว่าเราจะทำอะไรบ้าง
+https://youtu.be/TxMDkgmsGd0?si=Tmdi1HJ5jg3w6fYy&t=3271
+ฝั่งที่ 1 (q1,q2)(มี expected result ที่ชัดเจน) ฝั่งเหตุไม่มีอารมณ์
+https://youtu.be/TxMDkgmsGd0?si=oTVot6bVmZl7QOg7&t=3729
+ฝั่งที่ 2 (q3) อารมณ์ล้วนๆ ใช้คนเทสมีจิตใจมีอารมณ์ จะแปรผันตามเหตุการณ์นั้นๆไม่เหมือนกับ q1,q2 คือถ้าถูกมันก็ต้องผ่าน ถ้าผิดมันก็ต้อง fail แต่ฝั่ง q3 มันอาจจะมันทำงานได้ แต่ไม่ชอบ 55
+https://youtu.be/TxMDkgmsGd0?si=w68XgjY6uTXN3Rt9&t=3763
+q4 ใช้ tool ต่างๆเช่น performace test ต่างๆ
+https://youtu.be/TxMDkgmsGd0?si=88bAvLyrJPutQeGb&t=3802
+การเปลี่ยนแปลงและการเทส (สีฟ้าคือ automate)
+https://youtu.be/TxMDkgmsGd0?si=uisZEi7pJnukF-TH&t=3952
+มี performace test และ manaul test  , mnaul ไม่ได้หายไป จะต้องทดสอบในส่วนที่สำคัญๆ
+https://youtu.be/TxMDkgmsGd0?si=CaS6a71yNm8KxvrR&t=4027
+ดีพลอยเสร็จ performance เทสอีกรอบไหม มี UAT รึป่าว จากนั้นค่อยขึ้น production มันการทำ pipeline 
+https://youtu.be/TxMDkgmsGd0?si=HgYILc1gizdW6nlJ&t=4065 
+ทุกครั้งที่เปลี่ยนมันส่งผลกระทบอะไรกับ system อะไรของเรารึป่าว
+https://youtu.be/TxMDkgmsGd0?si=bFsF7pHmAlPbVRku&t=4102
+ีืunit test คืออะไร
+https://youtu.be/TxMDkgmsGd0?si=-TGLxXuVjYy9L6th&t=4235
+แต่ละส่วนต้องเป็นอิสระต่อกัน
+https://youtu.be/TxMDkgmsGd0?si=lYblRa3vhj8dS5JY&t=4268
+integretion test 
+https://youtu.be/TxMDkgmsGd0?si=YAxBz_80lT3hxQPM&t=4393
+integretion แบบเป็นเส้น
+https://youtu.be/TxMDkgmsGd0?si=6uj_JLNFl_no52Rh&t=4613
+ต้องทำ automate รึป่าว หรือใช้ test ของ java ที่ส่งตัวแปรไปเทสทั้งเส้น
+https://youtu.be/TxMDkgmsGd0?si=sEvIYMwInve7OIVq&t=4642
+เอาไว้ล้อ unit test คือแม่งทำงานได้แต่คนละส่วน 55
+https://youtu.be/TxMDkgmsGd0?si=IXz7ne8opMTrDhfi&t=4691
+component test เอาทั้งก้อน container
+https://youtu.be/TxMDkgmsGd0?si=0wR8y9HxWKoZNeEF&t=4760
+ถ้าเทสดี มันจะลดค่าใช้จ่าย ถ้าไม่เทส
+https://youtu.be/TxMDkgmsGd0?si=A8G38N2x61c5K1x9&t=4926
+การลองทำและก็นิ่ง แล้วมันจะอยู่กับเราไปตลอด
+https://youtu.be/TxMDkgmsGd0?si=64W35IJcTxL8zTQH&t=4981
+automate unit test (อาจจะต้องไปลองหน่อยนะ จำลองด้วยตัวเองในระบบที่เล็กกว่า เพื่อ confirm ว่าทำงานได้ไหลลื่น)
+https://youtu.be/TxMDkgmsGd0?si=gmtUR9Vh-3u9nCqT&t=5043
+unit test เราจะค่อยๆปีนเขาอย่างมั่นคง เป็นคุณภาพจากภายใน สวยจากภายใน
+https://youtu.be/TxMDkgmsGd0?si=77kmwfazr7u6CWQk&t=5118
+unit test แม่งก็เขียนเทสใน java นั้นแหละ ไส่ค่าเข้าไปเทสในแต่ละ function (ทำให้มันเป็นอิสระต่อกันให้มากที่สุด เพราะเราจะแยกควบคุมให้ได้)
+https://youtu.be/TxMDkgmsGd0?si=ID-jGY7JR0VobPRZ&t=5141
+test frist (เหมือน TDD เลยความหมาย)
+https://youtu.be/TxMDkgmsGd0?si=WtTROIWkoJrYPcbm&t=5272
+TDD มีเทสเคสเพียงเคสเดียวที่ fail นั้นคือเหตุผลของการไปเขียนโค๊ดนะ แล้วไปเขียนโค๊ดให้ผ่าน ให้มัน fail อันเดียว ไม่ใช่ fail หลายๆอันต้องหยุดก่อน เอาทีละตัว เช่น 80=A 
+พอเทสผ่านก็ไปเขียน fail ในเคสใหม่อีก
+https://youtu.be/TxMDkgmsGd0?si=SKW_PfvgQdjyAiq1&t=5363 
+ความยากคือ จะเขียนอะไร เพราะมันเริ่มต้น มันคือกระบวนการคิด  
+https://youtu.be/TxMDkgmsGd0?si=1okzf2uryQfBnq-Z&t=5403
+ซึ่งมันก็คือ acceptance ที่คุยกันในระดับบนของ v model เป้นเป้าหมาย 
+https://youtu.be/TxMDkgmsGd0?si=WbFLyNgipIBiTAtN&t=5432
+เรามีเป้าหมาย feature อะไร (ได้เป็น acceptance ของระดับ user) --> แตกออกมาเป็น task
+https://youtu.be/TxMDkgmsGd0?si=il7dzfjAiQPpJx1C&t=5457
+layer ของ @SpringBootTest
+https://youtu.be/TxMDkgmsGd0?si=YoMfwhIZE3L_e7je&t=6450
+slide test test by modile เช่น jdbc, jpa เอาแค่ layer นี้จะไม่โหลดมาหมดตอนเทส
+https://youtu.be/TxMDkgmsGd0?si=BVB6eGPp7Zx-oWk9&t=6507 
+unit test ใช้ mock (ไม่เคยใช้)
+https://youtu.be/TxMDkgmsGd0?si=9EPItjEHKsYOIYgq&t=6546
+โหลดเฉพาะสิ่งที่ต้องใช้
+https://youtu.be/TxMDkgmsGd0?si=kq9N_3mGnCTD_kOW&t=6772
+มัน build ตอนทำ image อยู่แล้วถ้าขึ้นไป kubernetes มันจะต้องยิงผ่าน api เท่านั้น
+https://youtu.be/TxMDkgmsGd0?si=AAVoUV3kHs5AJ9CR&t=7231
+TDD คือวิธีการทำงานเพิ่มเข้าไปว่าต้องมี acceptance ที่เป็นรูปธรรมแบบ list ให้เลยทุกขั้นตอน
+https://youtu.be/TxMDkgmsGd0?si=MTPhiKOWW5KVlKrQ&t=7344
+มันเหมือนให้มองเป็นคนเดียวกัน มี contract กลางที่มองเห็นภาพร่วมกัน ต้องเข้าใจมองเห็ฯภาพร่วมกัน
+https://youtu.be/TxMDkgmsGd0?si=7hkzX2NJ78AsxJxZ&t=7521
+ต้องเรียนรู้ได้เร็วเปลี่ยนเร็ว ไปได้หมด โคตรสำคัญ
+https://youtu.be/e6-1qP3bl44?si=ZTVJWd1iwhS9dk5d&t=101
+บริษัทยังปรับได้ผมก็ปรับได้เหมือนกัน ไม่จำเป็นต้องใช้สกิลเดิม ถ้ารู้เป้าหมายของตัวเองว่าอยากจะไปจุดใหน
+https://youtu.be/e6-1qP3bl44?si=Odhp0-XBwiTCQh5Q&t=342
+ขาดคนที่ทำได้
+https://youtu.be/e6-1qP3bl44?si=MkToTgxOF-nNjXwM&t=504
+เค้าไปเล่นอะไรกันตอนนี
+https://youtu.be/e6-1qP3bl44?si=p_llMark7cINa6HV&t=604
+เปลี่ยนไม่ได้แต่ยังทำเงินให้ business อยู่
+https://youtu.be/e6-1qP3bl44?si=x-KZodNTClzhQUBe&t=918
+เราไม่ได้พัฒนาระบบแต่เราพัฒนาตัวเองด้วย นี้คือหัวใจ
+ถ้าเรามีเวลาเราก็ต้องจัดสรรเวลาในการเรียนรู้ก่อน แต่ผมมีเวลาไง 
+https://youtu.be/e6-1qP3bl44?si=FxUIotNUmLI95TLK&t=988
+บริษัทเปิดพื้นที่ให้ไปเล่น เรียกว่า sandbox ได้รึป่าว
+https://youtu.be/e6-1qP3bl44?si=S6CGneUmvdI-JzDv&t=1018
+ให้ลอง ล้มได้ แต่ไม่ได้ทำให้โปรดักโดยรวมไม่มีปัญหา ถ้ามัน work เราไปต่อได้ แม่งไวด้วยนะไวกว่าเพื่อน
+https://youtu.be/e6-1qP3bl44?si=bOmwyPFs46MEVq09&t=1057
+ในองค์กรแบบเก่าแค่เปลี่ยน version มันคือแทบจะทุบทิ้ง เช่น 10 ปีมาเปลี่ยนทีหนึงของเดิมมันไม่ support แล้ว แต่ฝั่ง manage เรียกว่า update แต่ของจริงมันคือ change เขียนใหม่หมด
+นี้คือข้อดีของการไปไว เป็นเหมือนหนี้ที่ต้องจ่าย
+https://youtu.be/e6-1qP3bl44?si=8Pa6q7kIQznNNWMk&t=1151
+เพราะจากเดิมทำงาน 8 ชั่วโมง แต่ตอนนี้อาจจะเป็น 24ชั่วโมง เพราะ work from every where (เหตุผลของการสะดวก เป็นดาบอีกด้านของ work from every where)
+https://youtu.be/e6-1qP3bl44?si=j4OOQsbithi3f3eF&t=1257
+หลายๆคนเรียนรู้เยอะ มีของแต่ไม่ได้ใช้ บางทีเขาจะรู้สึกว่าองค์กรมันเล็กไปสำหรับเราไหม
+https://youtu.be/e6-1qP3bl44?si=61_4z4UFJ151lHio&t=1310
+แยกกัน user expreries กับ developer expreries ต้องมีความน่าเชื่อถือของ business ด้วย
+https://youtu.be/e6-1qP3bl44?si=W_pmiumQFZ8K__W9&t=2633 
+ไม่มีแรงจูงใจที่จำงับ
+ถ้าไม่ time manage ให้ดีๆ หมายถึงคุณทำงานเพื่อเข้าโรงพยาบาล 
+https://youtu.be/e6-1qP3bl44?si=1MpbJUreNhWF0HMf&t=2923
+นักพัฒนาอ้วนมาก กินบนโต๊ะนั้นแหละวนไป อันนี้เรา manage ได้
+https://youtu.be/e6-1qP3bl44?si=_xS1qNRlYB2VhAtW&t=2991
+ทำงานเป็นทีม แต่ออนไลน์ ยากละ
+https://youtu.be/e6-1qP3bl44?si=-Fun_yha_nNNCDK4&t=3021
+
+"Duck Typing"
+"If it looks like a duck and quacks like a duck, it must be a duck."
+ถ้ามันเหมือนเดินเหมือนเป็ดร้องเหมือนเป็ดมันก็คือเป็ด
+และถ้าใช้หลักการนี้เราจะเรียนรู้สิ่งที่นอกเหนือพื้นฐานในกรอบที่เรารู้ได้ง่ายขึ้น โดยไม่ต้องไปยึดพื้นฐานโครงสร้างเดิม
+   มันเหมือนกับ function Ne ไหม แนวคิดเดียวกันไหม ถ้า intp ยึดหลักการนี้ intp จะไปไวมากถูกไหม
+ถ้า INTP ใช้หลักนี้ จะไปไวมากไหม?
+แน่นอน! ถ้า INTP ใช้แนวคิดนี้แบบเต็มที่ จะสามารถ เรียนรู้สิ่งใหม่ ๆ ได้เร็วขึ้นมาก เพราะ:
+✅ ไม่เสียเวลากับการทำให้ทุกอย่างตรงกับโมเดลเดิม
+✅ ปรับตัวเข้าสู่บริบทใหม่ได้ทันที
+✅ เข้าใจแก่นของการทำงานโดยไม่ต้องยึดติดกับประเภทหรือโครงสร้าง
+   แสดงว่ามันลดการใช้ Si ซึ่งมันเสริมพลังให้ Ne ให้เพิ่มขึ้น
+ChatGPT said:
+ใช่เลย! หลักการของ Duck Typing หรือการไม่ยึดติดกับโครงสร้างเดิมนั้นสามารถช่วยลดการใช้ Si (Introverted Sensing) และเสริมพลังให้กับ Ne (Extraverted Intuition) ได้จริง ๆ   
+ด้วยวิธีนี้ INPT จะลดการหวนกลับไปใช้ Si ในการตรวจสอบหรือเปรียบเทียบสิ่งใหม่กับประสบการณ์ในอดีต เพราะพวกเขาสามารถ มุ่งเน้นไปที่การทำงานได้ทันที จากสิ่งที่เห็นหรือสัมผัสในปัจจุบัน
+Ne สามารถ มองหาโอกาสใหม่ ๆ และ เชื่อมโยงข้อมูลที่มีความหลากหลาย เข้าด้วยกัน โดยไม่ต้องยึดติดกับกรอบเดิม
+เมื่อ Ne ได้รับพลังเพิ่มขึ้น ด้วยการใช้หลักการของ Duck Typing INTP จะสามารถ มองเห็นโอกาสในการทดลอง หรือ เชื่อมโยงความคิดใหม่ ๆ ได้ง่ายขึ้น โดยไม่ต้องหยุดคิดหรือกังวลกับการยึดติดกับวิธีเดิมที่เคยทำมา
+การใช้ Ne แบบนี้ทำให้ INTP ได้ลองและเรียนรู้จากสิ่งใหม่ โดยไม่ถูกจำกัดด้วยข้อจำกัดของอดีตหรือการประเมินผลที่อยู่ในกรอบที่คุ้นเคย
+
+
+รอบแรก 
+1.เขียน test case ที่ควรจะได้ ที่อยากจะได้
+   80=A
+   70=B
+   60=C
+   50=D
+loop1 เขียนโปรแกรมให้มันทำงานให้ได้ (ทีละเคส เช่นรอบแรก เอา 80)
+       ทดสอบว่า 80 ผ่าน ตรงตามที่อยากได้ควรจะได้ /
+loop2 เขียนโปรแกรมให้ supprt 70=B
+       ทดสอบว่าผ่าน
+loop3 เขียนโปรแกรมให้ supprt 60=C
+       ทดสอบว่าผ่าน
+loop4 เขียนโปรแกรมให้ supprt 50=D
+       ทดสอบว่าผ่าน 
+
+//ค่อยๆไล่ทำทีละส่วน อันเล็กๆ ไม่ต้องมาไล่เทสใหม่ เหมือนที่เคยทำ (ทำแบบเสร็จหมด คิดมาก่อนแล้วค่อยเขียน) 
+  แบบเขียนๆไปก่อนสมองมันจะไหลกว่า เพราะตอนแรกเรายังคิดไม่ออกหมดว่ามันจะหน้าตาทั้งหมดเป็นยังไง ไม่ต้องไปนึกเอาทั้งหมดในหัวก่อนค่อยเขียน
+
+
+Agile Software Development
+REST APIs
+
